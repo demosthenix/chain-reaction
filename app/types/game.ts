@@ -31,3 +31,11 @@ export interface OrbPosition {
   top: string;
   left: string;
 }
+
+export interface ExplosionEvent {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  color: string;
+}

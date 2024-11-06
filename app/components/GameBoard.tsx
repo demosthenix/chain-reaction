@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Cell, Player, Explosion, GameState } from "../types/game";
+import {
+  Cell,
+  Player,
+  Explosion,
+  GameState,
+  ExplosionEvent,
+} from "../types/game";
 import { GameCell } from "./GameCell";
 import { ExplosionEffect } from "./ExplosionEffect";
 import {
@@ -9,17 +15,13 @@ import {
   getNeighbors,
   checkGameOver,
   createInitialBoard,
+  collectExplosionSequence,
+  simulateExplosionStep,
+  isWithInCapacity,
 } from "../lib/gameLogic";
 
 interface GameBoardProps {
   initialPlayers: Player[];
-}
-interface ExplosionEvent {
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  color: string;
 }
 
 export default function GameBoard({ initialPlayers }: GameBoardProps) {
@@ -30,76 +32,32 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     isGameOver: false,
     moving: false,
   });
-
+  const [intermediateBoard, setIntermediateBoard] = useState<Cell[][]>(
+    createInitialBoard()
+  );
   const [explosions, setExplosions] = useState<Explosion[]>([]);
   const explosionCount = useRef(0);
 
-  const collectExplosionSequence = (
-    board: Cell[][],
-    startX: number,
-    startY: number
-  ): ExplosionEvent[] => {
-    const sequence: ExplosionEvent[] = [];
-    const processedCells = new Set<string>();
-    const cellsToProcess = [{ x: startX, y: startY }];
-
-    while (cellsToProcess.length > 0) {
-      const { x, y } = cellsToProcess.shift()!;
-      const cellKey = `${x},${y}`;
-
-      if (processedCells.has(cellKey)) continue;
-      processedCells.add(cellKey);
-
-      const cell = board[y][x];
-      const capacity = getCellCapacity(x, y);
-
-      if (cell.orbs >= capacity && cell.owner !== null) {
-        const neighbors = getNeighbors(x, y);
-        const ownerColor = gameState.players[cell.owner].color;
-
-        neighbors.forEach(({ x: nx, y: ny }) => {
-          sequence.push({
-            fromX: x,
-            fromY: y,
-            toX: nx,
-            toY: ny,
-            color: ownerColor,
-          });
-
-          // Add neighbor to process if it will explode
-          const neighborCell = board[ny][nx];
-          if (neighborCell.orbs + 1 >= getCellCapacity(nx, ny)) {
-            cellsToProcess.push({ x: nx, y: ny });
-          }
-        });
-
-        // Update board state for next iterations
-        board[y][x] = {
-          ...cell,
-          orbs: 0,
-          owner: null,
-        };
-
-        neighbors.forEach(({ x: nx, y: ny }) => {
-          board[ny][nx] = {
-            orbs: board[ny][nx].orbs + 1,
-            owner: cell.owner,
-          };
-        });
-      }
-    }
-
-    return sequence;
-  };
-
   const animateExplosions = async (
     explosionSequence: ExplosionEvent[],
-    boardCopy: Cell[][]
+    finalBoard: Cell[][],
+    preMoveBoard: Cell[][]
   ) => {
-    const ANIMATION_DURATION = 300; // Increased from 200 to ensure animations complete
+    const ANIMATION_DURATION = 300;
+
+    // Start with pre-move board plus the initial click
+    let currentBoard = JSON.parse(JSON.stringify(preMoveBoard));
+
+    // Add the initial orb that triggered the explosion
+    const firstEvent = explosionSequence[0];
+    currentBoard[firstEvent.fromY][firstEvent.fromX] = {
+      orbs: preMoveBoard[firstEvent.fromY][firstEvent.fromX].orbs + 1,
+      owner: gameState.players[gameState.currentPlayerIndex].id,
+    };
+
+    setIntermediateBoard(currentBoard);
 
     for (const event of explosionSequence) {
-      // Create explosion animation
       setExplosions([
         {
           id: `explosion-${explosionCount.current++}`,
@@ -111,20 +69,28 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
         },
       ]);
 
-      // Wait for the complete animation cycle
-      await new Promise((resolve) => setTimeout(resolve, ANIMATION_DURATION));
+      // Simulate this step's changes
+      currentBoard = simulateExplosionStep(
+        currentBoard,
+        event.fromX,
+        event.fromY,
+        event.toX,
+        event.toY,
+        currentBoard[event.fromY][event.fromX].owner
+      );
+      setIntermediateBoard(currentBoard);
 
-      // Clear explosion after animation completes
+      await new Promise((resolve) => setTimeout(resolve, ANIMATION_DURATION));
       setExplosions([]);
     }
 
-    // Add a small delay before final state update
+    // Set final state after small delay
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const isGameOver = checkGameOver(boardCopy);
+    const isGameOver = checkGameOver(finalBoard);
     setGameState((prev) => ({
       ...prev,
-      board: boardCopy,
+      board: finalBoard,
       currentPlayerIndex: isGameOver
         ? prev.currentPlayerIndex
         : (prev.currentPlayerIndex + 1) % prev.players.length,
@@ -138,30 +104,48 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const cell = gameState.board[y][x];
+    const capacity = getCellCapacity(x, y);
 
     if (cell.owner === null || cell.owner === currentPlayer.id) {
+      if (cell.orbs >= capacity) return; // Prevent clicking on full cells
+
       setGameState((prev) => ({ ...prev, moving: true }));
 
-      // Create a deep copy of the board for calculations
-      const boardCopy = JSON.parse(JSON.stringify(gameState.board));
+      const preMoveBoard: Cell[][] = JSON.parse(
+        JSON.stringify(gameState.board)
+      );
+      const finalBoard: Cell[][] = JSON.parse(JSON.stringify(preMoveBoard));
 
       // Add orb to clicked cell
-      boardCopy[y][x] = {
-        orbs: boardCopy[y][x].orbs + 1,
+      finalBoard[y][x] = {
+        orbs: Math.min(capacity, finalBoard[y][x].orbs + 1),
         owner: currentPlayer.id,
       };
 
-      // Collect all explosion events that will occur
-      const explosionSequence = collectExplosionSequence(boardCopy, x, y);
+      let explosionSequence = collectExplosionSequence(
+        finalBoard,
+        x,
+        y,
+        gameState.players
+      );
 
-      // If there are explosions, animate them
+      // Final capacity check
+      finalBoard.forEach((row, ny) => {
+        row.forEach((cell, nx) => {
+          if (!isWithInCapacity(finalBoard, nx, ny)) {
+            explosionSequence.push(
+              ...collectExplosionSequence(finalBoard, nx, ny, gameState.players)
+            );
+          }
+        });
+      });
+
       if (explosionSequence.length > 0) {
-        animateExplosions(explosionSequence, boardCopy);
+        animateExplosions(explosionSequence, finalBoard, preMoveBoard);
       } else {
-        // If no explosions, just update state normally
         setGameState((prev) => ({
           ...prev,
-          board: boardCopy,
+          board: finalBoard,
           currentPlayerIndex:
             (prev.currentPlayerIndex + 1) % prev.players.length,
           moving: false,
@@ -232,20 +216,21 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
         Current Player: {gameState.players[gameState.currentPlayerIndex].letter}
       </div>
       <div className="grid grid-cols-8 gap-1 relative">
-        {gameState.board.map((row, y) =>
-          row.map((cell, x) => (
-            <GameCell
-              key={`${x}-${y}`}
-              cell={cell}
-              x={x}
-              y={y}
-              currentPlayer={gameState.players[gameState.currentPlayerIndex]}
-              players={gameState.players}
-              onClick={() => handleCellClick(x, y)}
-              isExploding={explodingCells.has(`${x},${y}`)}
-              isReceiving={receivingCells.has(`${x},${y}`)}
-            />
-          ))
+        {(gameState.moving ? intermediateBoard : gameState.board).map(
+          (row, y) =>
+            row.map((cell, x) => (
+              <GameCell
+                key={`${x}-${y}`}
+                cell={cell}
+                x={x}
+                y={y}
+                currentPlayer={gameState.players[gameState.currentPlayerIndex]}
+                players={gameState.players}
+                onClick={() => handleCellClick(x, y)}
+                isExploding={explodingCells.has(`${x},${y}`)}
+                isReceiving={receivingCells.has(`${x},${y}`)}
+              />
+            ))
         )}
         {explosions.map((explosion) => (
           <ExplosionEffect
