@@ -13,7 +13,7 @@ import { ExplosionEffect } from "./ExplosionEffect";
 import {
   getCellCapacity,
   getNeighbors,
-  checkGameOver,
+  getRemainingPlayers,
   createInitialBoard,
   collectExplosionSequence,
   simulateExplosionStep,
@@ -87,16 +87,20 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     // Set final state after small delay
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const isGameOver = checkGameOver(finalBoard);
-    setGameState((prev) => ({
-      ...prev,
-      board: finalBoard,
-      currentPlayerIndex: isGameOver
-        ? prev.currentPlayerIndex
-        : (prev.currentPlayerIndex + 1) % prev.players.length,
-      isGameOver,
-      moving: false,
-    }));
+    const remainingPlayers = getRemainingPlayers(finalBoard, gameState.players);
+    const isGameOver = remainingPlayers.length <= 1;
+    setGameState((prev) => {
+      return {
+        ...prev,
+        board: finalBoard,
+        currentPlayerIndex: isGameOver
+          ? prev.currentPlayerIndex
+          : (prev.currentPlayerIndex + 1) % remainingPlayers.length,
+        players: remainingPlayers,
+        isGameOver,
+        moving: false,
+      };
+    });
   };
 
   const handleCellClick = (x: number, y: number) => {
@@ -189,8 +193,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     return (
       <div className="text-center">
         <h1 className="text-3xl mb-4 text-white">
-          Game Over! {gameState.players[gameState.currentPlayerIndex].letter}{" "}
-          Wins!
+          Game Over! {gameState.players[0].letter} Wins!
         </h1>
         <button
           onClick={() => {
@@ -212,7 +215,10 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
 
   return (
     <div className="w-full h-screen flex flex-col items-center justify-center bg-black p-4">
-      <div className="mb-4 text-white text-xl">
+      <div
+        className={`mb-4  text-xl`}
+        style={{ color: gameState.players[gameState.currentPlayerIndex].color }}
+      >
         Current Player: {gameState.players[gameState.currentPlayerIndex].letter}
       </div>
       <div className="grid grid-cols-8 gap-1 relative">

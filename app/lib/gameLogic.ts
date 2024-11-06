@@ -19,26 +19,32 @@ export const getNeighbors = (x: number, y: number) => {
   return neighbors;
 };
 
-export const checkGameOver = (board: Cell[][]) => {
-  let totalOrbs = 0;
-  const playerOrbs = new Map<number, number>();
+export const getRemainingPlayers = (
+  board: Cell[][],
+  players: Player[]
+): Player[] => {
+  let activePlayers: { [key: Player["id"]]: boolean } = {};
+
+  players.forEach((player) => (activePlayers[player["id"]] = false));
 
   board.forEach((row) => {
     row.forEach((cell) => {
       if (cell.orbs > 0) {
-        totalOrbs += cell.orbs;
         if (cell.owner !== null) {
-          playerOrbs.set(
-            cell.owner,
-            (playerOrbs.get(cell.owner) || 0) + cell.orbs
-          );
+          activePlayers[cell.owner] = true;
         }
       }
     });
   });
 
-  if (totalOrbs === 0 || playerOrbs.size <= 1) return false;
-  return playerOrbs.size === 1;
+  return Object.keys(activePlayers)
+
+    .map((id) =>
+      activePlayers[Number(id)]
+        ? players.find((p) => p.id === Number(id))
+        : null
+    )
+    .filter((p): p is Player => p !== null);
 };
 
 export const createInitialBoard = (): Cell[][] => {
