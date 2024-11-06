@@ -1,17 +1,18 @@
-// app/components/PlayerSetup.tsx
 "use client";
 
 import { useState } from "react";
-import { useRecoilState } from "recoil";
-import { gameState } from "../atoms/gameState";
+import { Player } from "../types/game";
 
 const colors = ["red", "green", "blue", "yellow", "cyan", "magenta"];
 
-const PlayerSetup = () => {
-  const [players, setPlayers] = useState([
+interface PlayerSetupProps {
+  onStartGame: (players: Player[]) => void;
+}
+
+const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
+  const [players, setPlayers] = useState<Player[]>([
     { id: 0, name: "", color: "", letter: "" },
   ]);
-  const [game, setGame] = useRecoilState(gameState);
 
   const addPlayer = () => {
     if (players.length < 6) {
@@ -29,8 +30,6 @@ const PlayerSetup = () => {
   };
 
   const startGame = () => {
-    localStorage.removeItem("recoil-persist");
-    // Validate inputs
     const letters = players.map((p) => p.letter.toUpperCase());
     const uniqueLetters = new Set(letters);
     const colorsSelected = players.map((p) => p.color);
@@ -44,25 +43,15 @@ const PlayerSetup = () => {
       return;
     }
 
-    // Initialize game state
-    setGame({
-      ...game,
-      players: players.map((p, index) => ({ ...p, id: index })),
-      board: Array.from({ length: 8 }, () =>
-        Array.from({ length: 16 }, () => ({ orbs: 0, owner: null }))
-      ),
-      isGameOver: false,
-    });
+    onStartGame(players.map((p, index) => ({ ...p, id: index })));
   };
 
   return (
     <div className="p-4">
       {players.map((player, index) => {
-        const colorOptions = [
-          ...colors.filter(
-            (c) => !players.some((p) => p.color === c) || player.color === c
-          ),
-        ];
+        const colorOptions = colors.filter(
+          (c) => !players.some((p) => p.color === c) || player.color === c
+        );
         return (
           <div key={index} className="mb-4">
             <h2 className="text-lg font-bold">Player {index + 1}</h2>

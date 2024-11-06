@@ -1,4 +1,3 @@
-// app/types/game.ts
 export interface Player {
   id: number;
   name: string;
@@ -6,14 +5,29 @@ export interface Player {
   letter: string;
 }
 
+export interface Cell {
+  orbs: number;
+  owner: number | null;
+}
+
 export interface GameState {
   players: Player[];
   currentPlayerIndex: number;
   board: Cell[][];
   isGameOver: boolean;
+  moving: boolean;
 }
 
-export interface Cell {
-  orbs: number;
-  owner: number | null; // Player ID
+export interface Explosion {
+  id: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  color: string;
+}
+
+export interface OrbPosition {
+  top: string;
+  left: string;
 }

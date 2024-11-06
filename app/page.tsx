@@ -1,32 +1,20 @@
-// app/page.tsx
 "use client";
 
-import { RecoilRoot, useRecoilValue } from "recoil";
+import { useState } from "react";
 import PlayerSetup from "./components/PlayerSetup";
-import { gameState } from "./atoms/gameState";
 import GameBoard from "./components/GameBoard";
-import { Suspense } from "react";
+import { Player } from "./types/game";
 
 export default function Home() {
+  const [players, setPlayers] = useState<Player[]>([]);
+
   return (
-    <RecoilRoot>
-      <Suspense>
-        <GameClient />
-      </Suspense>
-    </RecoilRoot>
+    <main className="min-h-screen bg-black">
+      {players.length === 0 ? (
+        <PlayerSetup onStartGame={setPlayers} />
+      ) : (
+        <GameBoard initialPlayers={players} />
+      )}
+    </main>
   );
 }
-
-const GameClient = () => {
-  const game = useRecoilValue(gameState);
-
-  return (
-    <>
-      {game.players.length === 0 || game.isGameOver ? (
-        <PlayerSetup />
-      ) : (
-        <GameBoard />
-      )}
-    </>
-  );
-};
