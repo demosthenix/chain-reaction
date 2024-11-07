@@ -39,3 +39,11 @@ export interface ExplosionEvent {
   toY: number;
   color: string;
 }
+
+export interface GroupedExplosion {
+  id: string;
+  fromX: number;
+  fromY: number;
+  targets: { toX: number; toY: number }[];
+  color: string;
+}

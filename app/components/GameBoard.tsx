@@ -7,6 +7,7 @@ import {
   Explosion,
   GameState,
   ExplosionEvent,
+  GroupedExplosion,
 } from "../types/game";
 import { GameCell } from "./GameCell";
 import { ExplosionEffect } from "./ExplosionEffect";
@@ -35,8 +36,31 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
   const [intermediateBoard, setIntermediateBoard] = useState<Cell[][]>(
     createInitialBoard()
   );
-  const [explosions, setExplosions] = useState<Explosion[]>([]);
+  const [explosions, setExplosions] = useState<GroupedExplosion[]>([]);
   const explosionCount = useRef(0);
+
+  const groupExplosions = (sequence: ExplosionEvent[]): GroupedExplosion[] => {
+    const grouped = new Map<string, GroupedExplosion>();
+
+    sequence.forEach((explosion) => {
+      const key = `${explosion.fromX},${explosion.fromY}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: `explosion-${explosionCount.current++}`,
+          fromX: explosion.fromX,
+          fromY: explosion.fromY,
+          targets: [],
+          color: explosion.color,
+        });
+      }
+      grouped.get(key)!.targets.push({
+        toX: explosion.toX,
+        toY: explosion.toY,
+      });
+    });
+
+    return Array.from(grouped.values());
+  };
 
   const animateExplosions = async (
     explosionSequence: ExplosionEvent[],
@@ -44,8 +68,6 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     preMoveBoard: Cell[][]
   ) => {
     const ANIMATION_DURATION = 100;
-
-    // Start with pre-move board plus the initial click
     let currentBoard = JSON.parse(JSON.stringify(preMoveBoard));
 
     // Add the initial orb that triggered the explosion
@@ -57,50 +79,43 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
 
     setIntermediateBoard(currentBoard);
 
-    for (const event of explosionSequence) {
-      setExplosions([
-        {
-          id: `explosion-${explosionCount.current++}`,
-          fromX: event.fromX,
-          fromY: event.fromY,
-          toX: event.toX,
-          toY: event.toY,
-          color: event.color,
-        },
-      ]);
+    // Group explosions by source cell
+    const groupedExplosions = groupExplosions(explosionSequence);
 
-      // Simulate this step's changes
-      currentBoard = simulateExplosionStep(
-        currentBoard,
-        event.fromX,
-        event.fromY,
-        event.toX,
-        event.toY,
-        currentBoard[event.fromY][event.fromX].owner
-      );
+    for (const groupedExplosion of groupedExplosions) {
+      setExplosions([groupedExplosion]);
+
+      // Update all target cells simultaneously
+      groupedExplosion.targets.forEach(({ toX, toY }) => {
+        currentBoard = simulateExplosionStep(
+          currentBoard,
+          groupedExplosion.fromX,
+          groupedExplosion.fromY,
+          toX,
+          toY,
+          currentBoard[groupedExplosion.fromY][groupedExplosion.fromX].owner
+        );
+      });
       setIntermediateBoard(currentBoard);
 
       await new Promise((resolve) => setTimeout(resolve, ANIMATION_DURATION));
       setExplosions([]);
     }
 
-    // Set final state after small delay
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     const remainingPlayers = getRemainingPlayers(finalBoard, gameState.players);
     const isGameOver = remainingPlayers.length <= 1;
-    setGameState((prev) => {
-      return {
-        ...prev,
-        board: finalBoard,
-        currentPlayerIndex: isGameOver
-          ? prev.currentPlayerIndex
-          : (prev.currentPlayerIndex + 1) % remainingPlayers.length,
-        players: remainingPlayers,
-        isGameOver,
-        moving: false,
-      };
-    });
+    setGameState((prev) => ({
+      ...prev,
+      board: finalBoard,
+      currentPlayerIndex: isGameOver
+        ? prev.currentPlayerIndex
+        : (prev.currentPlayerIndex + 1) % remainingPlayers.length,
+      players: remainingPlayers,
+      isGameOver,
+      moving: false,
+    }));
   };
 
   const handleCellClick = (x: number, y: number) => {
