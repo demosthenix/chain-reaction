@@ -43,7 +43,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     finalBoard: Cell[][],
     preMoveBoard: Cell[][]
   ) => {
-    const ANIMATION_DURATION = 300;
+    const ANIMATION_DURATION = 100;
 
     // Start with pre-move board plus the initial click
     let currentBoard = JSON.parse(JSON.stringify(preMoveBoard));
@@ -85,7 +85,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     }
 
     // Set final state after small delay
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const remainingPlayers = getRemainingPlayers(finalBoard, gameState.players);
     const isGameOver = remainingPlayers.length <= 1;
@@ -105,6 +105,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
 
   const handleCellClick = (x: number, y: number) => {
     if (gameState.isGameOver || gameState.moving) return;
+    console.log("Cliecked", "x", x, "y", y);
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const cell = gameState.board[y][x];

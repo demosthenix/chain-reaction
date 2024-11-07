@@ -36,7 +36,7 @@ export function GameCell({
   useEffect(() => {
     if (cell.orbs !== prevOrbCount) {
       setShowCounter(true);
-      const timer = setTimeout(() => setShowCounter(false), 300);
+      const timer = setTimeout(() => setShowCounter(false), 100);
       setPrevOrbCount(cell.orbs);
       return () => clearTimeout(timer);
     }
@@ -45,12 +45,12 @@ export function GameCell({
   useEffect(() => {
     if (isExploding) {
       setAnimationState("exploding");
-      const timer = setTimeout(() => setAnimationState("idle"), 300);
+      const timer = setTimeout(() => setAnimationState("idle"), 100);
       return () => clearTimeout(timer);
     }
     if (isReceiving) {
       setAnimationState("receiving");
-      const timer = setTimeout(() => setAnimationState("idle"), 300);
+      const timer = setTimeout(() => setAnimationState("idle"), 100);
       return () => clearTimeout(timer);
     }
   }, [isExploding, isReceiving]);
@@ -104,12 +104,12 @@ export function GameCell({
                   left: pos.left,
                   transform: "translate(-50%, -50%)",
                   opacity: animationState === "exploding" ? 0 : 1,
-                  transition: "opacity 300ms ease-out",
+                  transition: "opacity 100ms ease-out",
                   animation:
                     animationState === "exploding"
-                      ? "explode-out 300ms ease-out"
+                      ? "explode-out 100ms ease-out"
                       : animationState === "receiving"
-                      ? "fade-in 300ms ease-out"
+                      ? "fade-in 100ms ease-out"
                       : "none",
                 }}
               >
