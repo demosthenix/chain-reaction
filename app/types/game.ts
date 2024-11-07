@@ -47,3 +47,24 @@ export interface GroupedExplosion {
   targets: { toX: number; toY: number }[];
   color: string;
 }
+
+export interface GameMove {
+  x: number;
+  y: number;
+  playerId: number;
+}
+
+export interface GameMove {
+  x: number;
+  y: number;
+  playerId: number;
+}
+
+export interface OnlineGameState {
+  roomId: string;
+  players: Player[];
+  currentPlayerIndex: number;
+  board: Cell[][];
+  isGameOver: boolean;
+  moving: boolean;
+}

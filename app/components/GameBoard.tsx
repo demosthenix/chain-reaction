@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Cell,
   Player,
   Explosion,
   GameState,
   ExplosionEvent,
+  GameMove,
 } from "../types/game";
 import { GameCell } from "./GameCell";
 import { ExplosionEffect } from "./ExplosionEffect";
@@ -19,12 +20,19 @@ import {
   simulateExplosionStep,
   isWithInCapacity,
 } from "../lib/gameLogic";
+import { useSocket } from "../hooks/useSocket";
 
 interface GameBoardProps {
   initialPlayers: Player[];
+  isOnline?: boolean;
 }
 
-export default function GameBoard({ initialPlayers }: GameBoardProps) {
+export default function GameBoard({
+  initialPlayers,
+  isOnline,
+}: GameBoardProps) {
+  const { socket, isConnected } = useSocket();
+  const [roomId, setRoomId] = useState<string>("");
   const [gameState, setGameState] = useState({
     players: initialPlayers,
     currentPlayerIndex: 0,
@@ -37,6 +45,30 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
   );
   const [explosions, setExplosions] = useState<Explosion[]>([]);
   const explosionCount = useRef(0);
+
+  useEffect(() => {
+    if (isOnline && socket) {
+      // Get room ID from URL or storage
+      const currentRoomId =
+        new URLSearchParams(window.location.search).get("room") || "";
+      setRoomId(currentRoomId);
+
+      socket.on("move-made", (move: GameMove) => {
+        handleCellClick(move.x, move.y);
+      });
+
+      return () => {
+        socket.off("move-made");
+      };
+    }
+  }, [isOnline, socket]);
+
+  useEffect(() => {
+    if (gameState.isGameOver && isOnline && socket && roomId) {
+      const winner = gameState.players[gameState.currentPlayerIndex];
+      socket.emit("game-over", roomId, winner);
+    }
+  }, [gameState.isGameOver, isOnline, socket, roomId]);
 
   const animateExplosions = async (
     explosionSequence: ExplosionEvent[],
@@ -118,6 +150,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
       moving: false,
     }));
   };
+
   const handleCellClick = (x: number, y: number) => {
     if (gameState.isGameOver || gameState.moving) return;
     console.log("Cliecked", "x", x, "y", y);
@@ -127,7 +160,12 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     const capacity = getCellCapacity(x, y);
 
     if (cell.owner === null || cell.owner === currentPlayer.id) {
-      if (cell.orbs >= capacity) return; // Prevent clicking on full cells
+      if (cell.orbs >= capacity) return;
+
+      // In online mode, emit the move
+      if (isOnline && socket) {
+        socket.emit("make-move", roomId, { x, y, playerId: currentPlayer.id });
+      }
 
       setGameState((prev) => ({ ...prev, moving: true }));
 
