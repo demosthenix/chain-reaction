@@ -63,7 +63,7 @@ body {
 }
 
 .explosion {
-  animation: explode 100ms ease-out forwards;
+  animation: explode 200ms ease-out forwards;
 }
 
 @keyframes count-up {
@@ -102,12 +102,4 @@ body {
     opacity: 0;
     transform: translateY(10px);
   }
-}
-
-.animate-count-up {
-  animation: count-up 100ms ease-out forwards;
-}
-
-.animate-count-down {
-  animation: count-down 100ms ease-out forwards;
 }

@@ -31,26 +31,22 @@ export function GameCell({
     "idle" | "exploding" | "receiving"
   >("idle");
   const [prevOrbCount, setPrevOrbCount] = useState(cell.orbs);
-  const [showCounter, setShowCounter] = useState(false);
 
   useEffect(() => {
     if (cell.orbs !== prevOrbCount) {
-      setShowCounter(true);
-      const timer = setTimeout(() => setShowCounter(false), 100);
       setPrevOrbCount(cell.orbs);
-      return () => clearTimeout(timer);
     }
   }, [cell.orbs, prevOrbCount]);
 
   useEffect(() => {
     if (isExploding) {
       setAnimationState("exploding");
-      const timer = setTimeout(() => setAnimationState("idle"), 100);
+      const timer = setTimeout(() => setAnimationState("idle"), 200);
       return () => clearTimeout(timer);
     }
     if (isReceiving) {
       setAnimationState("receiving");
-      const timer = setTimeout(() => setAnimationState("idle"), 100);
+      const timer = setTimeout(() => setAnimationState("idle"), 200);
       return () => clearTimeout(timer);
     }
   }, [isExploding, isReceiving]);
@@ -65,25 +61,6 @@ export function GameCell({
       onClick={onClick}
     >
       {/* Orb Counter Animation */}
-      {showCounter && (
-        <div
-          className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none
-            ${
-              cell.orbs > prevOrbCount
-                ? "animate-count-up"
-                : "animate-count-down"
-            }
-          `}
-        >
-          <div
-            className="text-xl font-bold"
-            style={{ color: cellPlayer.color }}
-          >
-            {cell.orbs > prevOrbCount ? "+" : "-"}
-          </div>
-        </div>
-      )}
-
       {cell.orbs > 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div
@@ -104,12 +81,12 @@ export function GameCell({
                   left: pos.left,
                   transform: "translate(-50%, -50%)",
                   opacity: animationState === "exploding" ? 0 : 1,
-                  transition: "opacity 100ms ease-out",
+                  transition: "opacity 200ms ease-out",
                   animation:
                     animationState === "exploding"
-                      ? "explode-out 100ms ease-out"
+                      ? "explode-out 200ms ease-out"
                       : animationState === "receiving"
-                      ? "fade-in 100ms ease-out"
+                      ? "fade-in 200ms ease-out"
                       : "none",
                 }}
               >

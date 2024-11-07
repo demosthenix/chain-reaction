@@ -153,6 +153,11 @@ export const collectExplosionSequence = (
     row.forEach((cell, x) => {
       cell.orbs = workingBoard[y][x].orbs;
       cell.owner = workingBoard[y][x].owner;
+    });
+  });
+
+  board.forEach((row, y) => {
+    row.forEach((cell, x) => {
       if (!isWithInCapacity(board, x, y)) {
         sequence.push(...collectExplosionSequence(board, x, y, players));
       }
