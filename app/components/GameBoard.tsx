@@ -43,7 +43,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     finalBoard: Cell[][],
     preMoveBoard: Cell[][]
   ) => {
-    const ANIMATION_DURATION = 300;
+    const ANIMATION_DURATION = 200;
 
     // Start with pre-move board plus the initial click
     let currentBoard = JSON.parse(JSON.stringify(preMoveBoard));
