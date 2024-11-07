@@ -8,6 +8,7 @@ const { persistAtom } = recoilPersist();
 export const gameState = atom<GameState>({
   key: "gameState",
   default: {
+    moving: false,
     players: [],
     currentPlayerIndex: 0,
     board: [],
