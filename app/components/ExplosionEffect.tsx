@@ -31,7 +31,7 @@ export function ExplosionEffect({
 
   return (
     <div
-      className="absolute w-3 h-3 explosion pointer-events-none"
+      className="absolute w-4 h-4 explosion pointer-events-none"
       style={
         {
           "--from-x": `${fromPixelX}px`,
