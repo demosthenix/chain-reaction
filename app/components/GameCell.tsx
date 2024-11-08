@@ -59,7 +59,8 @@ export function GameCell({
   return (
     <div
       aria-label={(cell.orbs || 0).toString()}
-      className="w-12 h-12 border-2 relative cursor-pointer transition-colors duration-200 hover:bg-gray-900"
+      className="border-2 relative cursor-pointer transition-colors duration-200 hover:bg-gray-900
+      w-12 h-12 max-sm:w-9 max-sm:h-9"
       style={{
         borderColor: cellPlayer.color,
         backgroundColor: isPrevCell ? "#61616180" : "",
@@ -81,7 +82,7 @@ export function GameCell({
             {orbPositions.map((pos: OrbPosition, i: number) => (
               <div
                 key={i}
-                className="absolute w-4 h-4"
+                className="absolute w-4 h-4 max-sm:w-[13px] max-sm:h-[13px]"
                 style={{
                   top: pos.top,
                   left: pos.left,
@@ -96,13 +97,18 @@ export function GameCell({
                       : "none",
                 }}
               >
-                <svg viewBox="0 0 100 100" className="w-full h-full">
+                <svg
+                  viewBox="0 0 100 100"
+                  className="w-4 h-4 max-sm:w-[13px] max-sm:h-[13px]"
+                >
                   <circle
                     cx="50"
                     cy="50"
                     r="45"
                     fill={cellPlayer.color}
                     filter="url(#glow)"
+                    stroke="white"
+                    strokeWidth={3}
                   />
                   <defs>
                     <filter id="glow">

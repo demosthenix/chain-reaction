@@ -303,8 +303,7 @@ export default function GameBoard({
               moving: false,
             });
           }}
-          className="px-8 py-3 bg-white/10 hover:bg-white/20 
-                   text-white rounded-lg transition-colors"
+          className="bg-white/10 w-48"
         >
           Play Again
         </button>
@@ -313,7 +312,7 @@ export default function GameBoard({
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-start">
+    <div className="w-full h-full flex flex-col items-center justify-center bg-background p-1 sm:p-2 md:p-4">
       {/* Header info section */}
       <div className="w-full max-w-7xl px-4 flex flex-col items-center">
         <div className="flex flex-row justify-center items-center gap-4 mt-3">
@@ -349,37 +348,38 @@ export default function GameBoard({
         </div>
 
         {/* Responsive game grid container */}
-        <div className="w-full aspect-square max-h-[80vh] max-w-[400px]">
-          <div className="grid grid-cols-8 gap-1 h-full">
-            {(gameState.moving ? intermediateBoard : gameState.board).map(
-              (row, y) =>
-                row.map((cell, x) => (
-                  <GameCell
-                    key={`${x}-${y}`}
-                    cell={cell}
-                    x={x}
-                    y={y}
-                    currentPlayer={
-                      gameState.players[gameState.currentPlayerIndex]
-                    }
-                    isPrevCell={prevCell[0] === x && prevCell[1] === y}
-                    players={gameState.players}
-                    onClick={() => handleCellClick(x, y)}
-                    isExploding={explodingCells.has(`${x},${y}`)}
-                    isReceiving={receivingCells.has(`${x},${y}`)}
-                  />
-                ))
-            )}
-            {/* Multiple explosions can now render simultaneously from the same source */}
-            {explosions.map((explosion) => (
-              <ExplosionEffect
-                key={explosion.id}
-                explosion={explosion}
-                onAnimationStart={handleAnimationStart}
-                onAnimationEnd={handleAnimationEnd}
-              />
-            ))}
-          </div>
+        <div
+          className="grid grid-cols-8 grid-rows-16 relative w-full max-w-xs sm:max-w-md"
+          style={{ aspectRatio: "1 / 2" }} // Maintains 8x16 grid aspect ratio
+        >
+          {(gameState.moving ? intermediateBoard : gameState.board).map(
+            (row, y) =>
+              row.map((cell, x) => (
+                <GameCell
+                  key={`${x}-${y}`}
+                  cell={cell}
+                  x={x}
+                  y={y}
+                  currentPlayer={
+                    gameState.players[gameState.currentPlayerIndex]
+                  }
+                  isPrevCell={prevCell[0] === x && prevCell[1] === y}
+                  players={gameState.players}
+                  onClick={() => handleCellClick(x, y)}
+                  isExploding={explodingCells.has(`${x},${y}`)}
+                  isReceiving={receivingCells.has(`${x},${y}`)}
+                />
+              ))
+          )}
+          {/* Multiple explosions can now render simultaneously from the same source */}
+          {explosions.map((explosion) => (
+            <ExplosionEffect
+              key={explosion.id}
+              explosion={explosion}
+              onAnimationStart={handleAnimationStart}
+              onAnimationEnd={handleAnimationEnd}
+            />
+          ))}
         </div>
       </div>
     </div>
