@@ -1,81 +1,101 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSocket } from "../hooks/useSocket";
 import { Player } from "../types/game";
+import { useSocket } from "../providers/SocketProvider";
 
 interface OnlineGameProps {
-  onJoinGame: (players: Player[]) => void;
+  onJoinGame: (players: Player[], roomId: string) => void;
 }
-
 export function OnlineGame({ onJoinGame }: OnlineGameProps) {
-  const { socket, isConnected } = useSocket();
+  const { socket } = useSocket();
   const [roomId, setRoomId] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [roomPlayers, setRoomPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [player, setPlayer] = useState<Player>({
-    id: 0,
+    id: "",
     name: "",
     color: "",
     letter: "",
   });
+  const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("player-updated", (updatedPlayers: Player[]) => {
+      setPlayers(updatedPlayers);
+    });
+
+    socket.on("game-started", (gamePlayers: Player[]) => {
+      onJoinGame(gamePlayers, roomId);
+    });
+
+    return () => {
+      socket.off("player-updated");
+      socket.off("game-started");
+    };
+  }, [socket, onJoinGame, roomId]);
 
   const createGame = () => {
-    if (!player.color || !player.letter) {
-      setError("Please set your color and letter first");
-      return;
-    }
+    if (!socket) return;
 
-    const newRoomId = Math.random().toString(36).substr(2, 6).toUpperCase();
-    socket?.emit("create-room", newRoomId);
-    setRoomId(newRoomId);
-    setRoomPlayers([player]);
-    socket?.emit("join-room", newRoomId, player);
+    socket.emit("create-room", ({ roomId }: { roomId: string }) => {
+      setRoomId(roomId);
+      setIsOwner(true);
+      const newPlayer = { ...player, id: socket.id! };
+      setPlayer(newPlayer);
+      socket.emit(
+        "join-room",
+        { roomId, player: newPlayer },
+        (response: any) => {
+          if (response.success) {
+            setPlayers([newPlayer]);
+          }
+        }
+      );
+    });
   };
 
   const joinGame = () => {
-    if (!player.color || !player.letter) {
-      setError("Please set your color and letter first");
-      return;
-    }
+    if (!socket) return;
 
     if (!joinCode) {
       setError("Please enter a room code");
       return;
     }
 
-    socket?.emit("join-room", joinCode.toUpperCase(), player);
-    setRoomId(joinCode.toUpperCase());
+    const newPlayer = { ...player, id: socket.id! };
+    setPlayer(newPlayer);
+
+    socket.emit(
+      "join-room",
+      { roomId: joinCode.toUpperCase(), player: newPlayer },
+      (response: any) => {
+        if (response.success) {
+          setRoomId(joinCode.toUpperCase());
+        } else {
+          setError(response.message);
+        }
+      }
+    );
   };
 
-  useEffect(() => {
-    if (!socket) return;
+  const updatePlayerInfo = (key: keyof Player, value: string) => {
+    const updatedPlayer = { ...player, [key]: value };
+    setPlayer(updatedPlayer);
 
-    socket.on("room-created", ({ roomId }) => {
-      setRoomId(roomId);
-    });
+    if (socket && roomId) {
+      socket.emit("update-player", { roomId, player: updatedPlayer });
+    }
+  };
 
-    socket.on("player-joined", (newPlayer) => {
-      setRoomPlayers((prev) => {
-        const updatedPlayers = [...prev, newPlayer];
-        // Start game when we have 2 or more players
-        if (updatedPlayers.length >= 2) {
-          onJoinGame(updatedPlayers);
-        }
-        return updatedPlayers;
-      });
-    });
-
-    return () => {
-      socket.off("room-created");
-      socket.off("player-joined");
-    };
-  }, [socket, onJoinGame]);
-
-  if (!isConnected) {
-    return <div>Connecting to server...</div>;
-  }
+  const startGame = () => {
+    if (socket && roomId && isOwner && players.length >= 2) {
+      socket.emit("start-game", roomId);
+    }
+  };
 
   return (
     <div className="p-8 text-white">
@@ -90,27 +110,19 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
           placeholder="Letter"
           value={player.letter}
           onChange={(e) =>
-            setPlayer((prev) => ({
-              ...prev,
-              letter: e.target.value.toUpperCase(),
-            }))
+            updatePlayerInfo("letter", e.target.value.toUpperCase())
           }
           className="p-2 mr-2 text-black"
         />
         <select
           value={player.color}
-          onChange={(e) =>
-            setPlayer((prev) => ({
-              ...prev,
-              color: e.target.value,
-            }))
-          }
+          onChange={(e) => updatePlayerInfo("color", e.target.value)}
           className="p-2 text-black"
         >
           <option value="">Select Color</option>
           <option value="red">Red</option>
-          <option value="blue">Blue</option>
           <option value="green">Green</option>
+          <option value="blue">Blue</option>
           <option value="yellow">Yellow</option>
           <option value="cyan">Cyan</option>
           <option value="magenta">Magenta</option>
@@ -119,17 +131,14 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
 
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
-      {/* Game Creation/Joining */}
       {!roomId ? (
         <div className="space-y-4">
-          <div>
-            <button
-              onClick={createGame}
-              className="bg-blue-500 px-4 py-2 rounded mr-4"
-            >
-              Create New Game
-            </button>
-          </div>
+          <button
+            onClick={createGame}
+            className="bg-blue-500 px-4 py-2 rounded"
+          >
+            Create New Game
+          </button>
           <div className="flex items-center">
             <input
               type="text"
@@ -149,7 +158,26 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
       ) : (
         <div>
           <h2 className="text-xl mb-4">Room Code: {roomId}</h2>
-          <p>Waiting for other players to join...</p>
+          <div className="mb-4">
+            <h3 className="text-lg">Players in Lobby:</h3>
+            <ul>
+              {players.map((p) => (
+                <li key={p.id} style={{ color: p.color }}>
+                  {p.letter}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {isOwner && players.length >= 2 ? (
+            <button
+              onClick={startGame}
+              className="bg-green-500 px-4 py-2 rounded"
+            >
+              Start Game
+            </button>
+          ) : (
+            <p>Waiting for the host to start the game...</p>
+          )}
         </div>
       )}
     </div>

@@ -11,14 +11,14 @@ interface PlayerSetupProps {
 
 const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
   const [players, setPlayers] = useState<Player[]>([
-    { id: 0, name: "", color: "", letter: "" },
+    { id: "0", name: "", color: "", letter: "" },
   ]);
 
   const addPlayer = () => {
     if (players.length < 6) {
       setPlayers([
         ...players,
-        { id: players.length, name: "", color: "", letter: "" },
+        { id: players.length.toString(), name: "", color: "", letter: "" },
       ]);
     }
   };
@@ -43,7 +43,7 @@ const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
       return;
     }
 
-    onStartGame(players.map((p, index) => ({ ...p, id: index })));
+    onStartGame(players.map((p, index) => ({ ...p, id: index.toString() })));
   };
 
   return (

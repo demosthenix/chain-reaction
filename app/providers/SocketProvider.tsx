@@ -1,56 +1,41 @@
+// app/context/SocketProvider.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
-interface SocketContextType {
+interface SocketContextProps {
   socket: Socket | null;
-  isConnected: boolean;
 }
 
-const SocketContext = createContext<SocketContextType>({
-  socket: null,
-  isConnected: false,
-});
+const SocketContext = createContext<SocketContextProps>({ socket: null });
 
-export function SocketProvider({ children }: { children: React.ReactNode }) {
+export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io({
-      path: "/api/socket/io",
-      addTrailingSlash: false,
+    const socketIo = io({
+      path: "/socket.io",
     });
 
-    socketInstance.on("connect", () => {
-      console.log("Connected to Socket.IO");
-      setIsConnected(true);
-    });
+    setSocket(socketIo);
 
-    socketInstance.on("disconnect", () => {
-      console.log("Disconnected from Socket.IO");
-      setIsConnected(false);
-    });
+    function cleanup() {
+      if (socketIo) socketIo.disconnect();
+    }
 
-    setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    return cleanup;
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
+    <SocketContext.Provider value={{ socket }}>
       {children}
     </SocketContext.Provider>
   );
-}
+};
 
 export const useSocket = () => {
-  const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error("useSocket must be used within a SocketProvider");
-  }
-  return context;
+  return useContext(SocketContext);
 };

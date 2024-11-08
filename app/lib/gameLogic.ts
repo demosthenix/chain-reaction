@@ -23,28 +23,22 @@ export const getRemainingPlayers = (
   board: Cell[][],
   players: Player[]
 ): Player[] => {
-  let activePlayers: { [key: Player["id"]]: boolean } = {};
+  const activePlayers: { [key: string]: boolean } = {};
 
-  players.forEach((player) => (activePlayers[player["id"]] = false));
+  // Initialize all players as inactive
+  players.forEach((player) => (activePlayers[player.id] = false));
 
+  // Mark players as active if they own any cells
   board.forEach((row) => {
     row.forEach((cell) => {
-      if (cell.orbs > 0) {
-        if (cell.owner !== null) {
-          activePlayers[cell.owner] = true;
-        }
+      if (cell.orbs > 0 && cell.owner !== null) {
+        activePlayers[cell.owner] = true;
       }
     });
   });
 
-  return Object.keys(activePlayers)
-
-    .map((id) =>
-      activePlayers[Number(id)]
-        ? players.find((p) => p.id === Number(id))
-        : null
-    )
-    .filter((p): p is Player => p !== null);
+  // Return the list of active players
+  return players.filter((player) => activePlayers[player.id]);
 };
 
 export const createInitialBoard = (): Cell[][] => {
@@ -96,7 +90,7 @@ export const collectExplosionSequence = (
   const cellsToProcess = [{ x: startX, y: startY }];
 
   // Deep copy the board for calculations
-  const workingBoard = JSON.parse(JSON.stringify(board));
+  const workingBoard: Cell[][] = JSON.parse(JSON.stringify(board));
 
   while (cellsToProcess.length > 0) {
     const { x, y } = cellsToProcess.shift()!;
@@ -111,7 +105,7 @@ export const collectExplosionSequence = (
     if (cell.orbs >= capacity && cell.owner !== null) {
       processedExplosions.add(cellKey);
       const neighbors = getNeighbors(x, y);
-      const ownerColor = players[cell.owner].color;
+      const ownerColor = players.find((p) => p.id === cell.owner)?.color || "";
 
       // Reset the exploding cell
       workingBoard[y][x] = {
