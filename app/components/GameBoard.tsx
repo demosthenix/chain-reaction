@@ -46,6 +46,7 @@ export default function GameBoard({
   );
   const [explosions, setExplosions] = useState<Explosion[]>([]);
   const explosionCount = useRef(0);
+  const [prevCell, setPrevCell] = useState<[number, number]>([-1, -1]);
 
   useEffect(() => {
     if (isOnline && socket) {
@@ -236,7 +237,9 @@ export default function GameBoard({
           preMoveBoard,
           movingPlayerIndex
         );
+        setPrevCell([-1, -1]);
       } else {
+        setPrevCell([x, y]);
         setGameState((prev) => ({
           ...prev,
           board: finalBoard,
@@ -283,10 +286,13 @@ export default function GameBoard({
 
   if (gameState.isGameOver) {
     return (
-      <div className="text-center">
-        <h1 className="text-3xl mb-4 text-white">
-          Game Over! {gameState.players[0].letter} Wins!
-        </h1>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
+        <div
+          style={{ color: gameState.players[0].color }}
+          className="text-4xl font-bold mb-8 text-center"
+        >
+          Player {gameState.players[0].letter} Wins!
+        </div>
         <button
           onClick={() => {
             setGameState({
@@ -297,67 +303,84 @@ export default function GameBoard({
               moving: false,
             });
           }}
-          className="bg-blue-500 text-white px-4 py-2 mt-4"
+          className="px-8 py-3 bg-white/10 hover:bg-white/20 
+                   text-white rounded-lg transition-colors"
         >
-          Restart Game
+          Play Again
         </button>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-screen flex flex-col items-center justify-center bg-black p-4">
-      {/* Display connected player's info */}
-      {isOnline && connectedPlayer && (
-        <div
-          className="mb-2 text-lg flex items-center"
-          style={{
-            color: connectedPlayer.color,
-          }}
-        >
-          <span>Your Player: </span>
-          <span className="ml-2 font-bold">{connectedPlayer.letter}</span>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-start">
+      {/* Header info section */}
+      <div className="w-full max-w-7xl px-4 flex flex-col items-center">
+        <div className="flex flex-row justify-center items-center gap-4 mt-3">
+          {/* Display connected player's info */}
+          {isOnline && connectedPlayer && (
+            <div
+              style={{ color: connectedPlayer.color }}
+              className="mb-4 text-xl flex items-center bg-white/5 px-4 py-2 rounded-lg"
+            >
+              <span>Your Player:</span>
+              <span className="ml-2 font-bold">{connectedPlayer.letter}</span>
+            </div>
+          )}
+          {/* Display current player's turn */}
+          <div
+            style={{
+              color: gameState.players[gameState.currentPlayerIndex].color,
+            }}
+            className="mb-4 text-xl flex items-center bg-white/5 px-4 py-2 rounded-lg"
+          >
+            {connectedPlayer?.id ===
+            gameState.players[gameState.currentPlayerIndex].id ? (
+              <span>Your Turn</span>
+            ) : (
+              <>
+                <span>Current Player:</span>
+                <span className="ml-2 font-bold">
+                  {gameState.players[gameState.currentPlayerIndex].letter}
+                </span>
+              </>
+            )}
+          </div>
         </div>
-      )}
-      {/* Display current player's turn */}
-      <div
-        className="mb-4 text-xl flex items-center"
-        style={{
-          color: gameState.players[gameState.currentPlayerIndex].color,
-        }}
-      >
-        <span>Current Player: </span>
-        <span className="ml-2 font-bold">
-          {gameState.players[gameState.currentPlayerIndex].letter}
-        </span>
-      </div>
 
-      <div className="grid grid-cols-8 gap-1 relative">
-        {(gameState.moving ? intermediateBoard : gameState.board).map(
-          (row, y) =>
-            row.map((cell, x) => (
-              <GameCell
-                key={`${x}-${y}`}
-                cell={cell}
-                x={x}
-                y={y}
-                currentPlayer={gameState.players[gameState.currentPlayerIndex]}
-                players={gameState.players}
-                onClick={() => handleCellClick(x, y)}
-                isExploding={explodingCells.has(`${x},${y}`)}
-                isReceiving={receivingCells.has(`${x},${y}`)}
+        {/* Responsive game grid container */}
+        <div className="w-full aspect-square max-h-[80vh] max-w-[400px]">
+          <div className="grid grid-cols-8 gap-1 h-full">
+            {(gameState.moving ? intermediateBoard : gameState.board).map(
+              (row, y) =>
+                row.map((cell, x) => (
+                  <GameCell
+                    key={`${x}-${y}`}
+                    cell={cell}
+                    x={x}
+                    y={y}
+                    currentPlayer={
+                      gameState.players[gameState.currentPlayerIndex]
+                    }
+                    isPrevCell={prevCell[0] === x && prevCell[1] === y}
+                    players={gameState.players}
+                    onClick={() => handleCellClick(x, y)}
+                    isExploding={explodingCells.has(`${x},${y}`)}
+                    isReceiving={receivingCells.has(`${x},${y}`)}
+                  />
+                ))
+            )}
+            {/* Multiple explosions can now render simultaneously from the same source */}
+            {explosions.map((explosion) => (
+              <ExplosionEffect
+                key={explosion.id}
+                explosion={explosion}
+                onAnimationStart={handleAnimationStart}
+                onAnimationEnd={handleAnimationEnd}
               />
-            ))
-        )}
-        {/* Multiple explosions can now render simultaneously from the same source */}
-        {explosions.map((explosion) => (
-          <ExplosionEffect
-            key={explosion.id}
-            explosion={explosion}
-            onAnimationStart={handleAnimationStart}
-            onAnimationEnd={handleAnimationEnd}
-          />
-        ))}
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ interface GameCellProps {
   currentPlayer: Player;
   players: Player[];
   onClick: () => void;
+  isPrevCell: boolean;
   isExploding?: boolean;
   isReceiving?: boolean;
 }
@@ -20,6 +21,7 @@ export function GameCell({
   currentPlayer,
   players,
   onClick,
+  isPrevCell,
   isExploding = false,
   isReceiving = false,
 }: GameCellProps) {
@@ -60,6 +62,7 @@ export function GameCell({
       className="w-12 h-12 border-2 relative cursor-pointer transition-colors duration-200 hover:bg-gray-900"
       style={{
         borderColor: cellPlayer.color,
+        backgroundColor: isPrevCell ? "#61616180" : "",
       }}
       onClick={onClick}
     >

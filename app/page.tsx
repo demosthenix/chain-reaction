@@ -25,17 +25,17 @@ export default function Home() {
 
   if (!mode) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen w-full flex items-center justify-center">
         <div className="space-y-4">
           <button
             onClick={() => setMode("local")}
-            className="block w-48 bg-blue-500 text-white px-4 py-2 rounded"
+            className="block w-48 bg-blue-500"
           >
             Local Game
           </button>
           <button
             onClick={() => setMode("online")}
-            className="block w-48 bg-green-500 text-white px-4 py-2 rounded"
+            className="block w-48 bg-green-500"
           >
             Online Game
           </button>

@@ -82,3 +82,9 @@ export interface Room {
   players: Player[];
   isGameStarted: boolean;
 }
+
+export type ValidationError = {
+  field: string;
+  message: string;
+  playerIndex?: number;
+};
