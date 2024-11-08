@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Cell,
   Player,
   Explosion,
   GameState,
   ExplosionEvent,
+  GameMove,
 } from "../types/game";
 import { GameCell } from "./GameCell";
 import { ExplosionEffect } from "./ExplosionEffect";
@@ -19,12 +20,19 @@ import {
   simulateExplosionStep,
   isWithInCapacity,
 } from "../lib/gameLogic";
+import { useSocket } from "../providers/SocketProvider";
 
 interface GameBoardProps {
   initialPlayers: Player[];
+  isOnline?: boolean;
+  roomId?: string;
 }
-
-export default function GameBoard({ initialPlayers }: GameBoardProps) {
+export default function GameBoard({
+  initialPlayers,
+  isOnline,
+  roomId,
+}: GameBoardProps) {
+  const { socket } = useSocket();
   const [gameState, setGameState] = useState({
     players: initialPlayers,
     currentPlayerIndex: 0,
@@ -32,16 +40,49 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
     isGameOver: false,
     moving: false,
   });
+  const [connectedPlayer, setConnectedPlayer] = useState<Player | null>(null);
   const [intermediateBoard, setIntermediateBoard] = useState<Cell[][]>(
     createInitialBoard()
   );
   const [explosions, setExplosions] = useState<Explosion[]>([]);
   const explosionCount = useRef(0);
 
+  useEffect(() => {
+    if (isOnline && socket) {
+      // Find the connected player's information
+      const player = gameState.players.find((p) => p.id === socket.id) || null;
+      setConnectedPlayer(player);
+
+      socket.on("move-made", (move: GameMove) => {
+        handleCellClick(move.x, move.y, move.playerId, false);
+      });
+
+      socket.on("game-ended", (winner: Player) => {
+        setGameState((prev) => ({ ...prev, isGameOver: true }));
+      });
+
+      return () => {
+        socket.off("move-made");
+        socket.off("game-ended");
+      };
+    } else {
+      // In local mode, set connected player to null
+      setConnectedPlayer(null);
+    }
+  }, [isOnline, socket, gameState, setGameState]);
+
+  useEffect(() => {
+    if (gameState.isGameOver && isOnline && socket && roomId) {
+      const winner = gameState.players[0];
+      socket.emit("game-over", { roomId, winner });
+    }
+  }, [gameState.isGameOver, isOnline, socket, roomId]);
+
   const animateExplosions = async (
     explosionSequence: ExplosionEvent[],
     finalBoard: Cell[][],
-    preMoveBoard: Cell[][]
+    preMoveBoard: Cell[][],
+    movingPlayerIndex: number
   ) => {
     const ANIMATION_DURATION = 200;
 
@@ -111,23 +152,50 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
       ...prev,
       board: finalBoard,
       currentPlayerIndex: isGameOver
-        ? prev.currentPlayerIndex
-        : (prev.currentPlayerIndex + 1) % remainingPlayers.length,
+        ? movingPlayerIndex
+        : (movingPlayerIndex + 1) % prev.players.length,
       players: remainingPlayers,
       isGameOver,
       moving: false,
     }));
   };
-  const handleCellClick = (x: number, y: number) => {
+
+  const handleCellClick = (
+    x: number,
+    y: number,
+    playerId?: string,
+    emitMove = true
+  ) => {
     if (gameState.isGameOver || gameState.moving) return;
     console.log("Cliecked", "x", x, "y", y);
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    // Determine the moving player
+    const movingPlayerId = playerId || currentPlayer.id;
+    // Find the index of the moving player
+    const movingPlayerIndex = gameState.players.findIndex(
+      (p) => p.id === movingPlayerId
+    );
+    if (movingPlayerIndex === -1) {
+      console.error("Invalid player ID");
+      return;
+    }
+    // Only allow the current player to make a move when initiating the move
+    if (emitMove && isOnline && currentPlayer.id !== socket?.id) return;
+
     const cell = gameState.board[y][x];
     const capacity = getCellCapacity(x, y);
 
-    if (cell.owner === null || cell.owner === currentPlayer.id) {
-      if (cell.orbs >= capacity) return; // Prevent clicking on full cells
+    if (cell.owner === null || cell.owner === movingPlayerId) {
+      if (cell.orbs >= capacity) return;
+
+      // In online mode, emit the move
+      if (isOnline && emitMove && socket && roomId) {
+        socket.emit("make-move", {
+          roomId,
+          move: { x, y, playerId: movingPlayerId },
+        });
+      }
 
       setGameState((prev) => ({ ...prev, moving: true }));
 
@@ -139,7 +207,7 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
       // Add orb to clicked cell
       finalBoard[y][x] = {
         orbs: Math.min(capacity, finalBoard[y][x].orbs + 1),
-        owner: currentPlayer.id,
+        owner: movingPlayerId,
       };
 
       let explosionSequence = collectExplosionSequence(
@@ -160,15 +228,23 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
         });
       });
 
+      let isGameOver = false;
       if (explosionSequence.length > 0) {
-        animateExplosions(explosionSequence, finalBoard, preMoveBoard);
+        animateExplosions(
+          explosionSequence,
+          finalBoard,
+          preMoveBoard,
+          movingPlayerIndex
+        );
       } else {
         setGameState((prev) => ({
           ...prev,
           board: finalBoard,
-          currentPlayerIndex:
-            (prev.currentPlayerIndex + 1) % prev.players.length,
+          currentPlayerIndex: isGameOver
+            ? movingPlayerIndex
+            : (movingPlayerIndex + 1) % prev.players.length,
           moving: false,
+          isGameOver: false,
         }));
       }
     }
@@ -231,12 +307,31 @@ export default function GameBoard({ initialPlayers }: GameBoardProps) {
 
   return (
     <div className="w-full h-screen flex flex-col items-center justify-center bg-black p-4">
+      {/* Display connected player's info */}
+      {isOnline && connectedPlayer && (
+        <div
+          className="mb-2 text-lg flex items-center"
+          style={{
+            color: connectedPlayer.color,
+          }}
+        >
+          <span>Your Player: </span>
+          <span className="ml-2 font-bold">{connectedPlayer.letter}</span>
+        </div>
+      )}
+      {/* Display current player's turn */}
       <div
-        className="mb-4 text-xl"
-        style={{ color: gameState.players[gameState.currentPlayerIndex].color }}
+        className="mb-4 text-xl flex items-center"
+        style={{
+          color: gameState.players[gameState.currentPlayerIndex].color,
+        }}
       >
-        Current Player: {gameState.players[gameState.currentPlayerIndex].letter}
+        <span>Current Player: </span>
+        <span className="ml-2 font-bold">
+          {gameState.players[gameState.currentPlayerIndex].letter}
+        </span>
       </div>
+
       <div className="grid grid-cols-8 gap-1 relative">
         {(gameState.moving ? intermediateBoard : gameState.board).map(
           (row, y) =>

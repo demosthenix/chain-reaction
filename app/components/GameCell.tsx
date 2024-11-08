@@ -24,7 +24,10 @@ export function GameCell({
   isReceiving = false,
 }: GameCellProps) {
   const orbPositions = getOrbPositions(cell.orbs);
-  const cellPlayer = cell.owner !== null ? players[cell.owner] : currentPlayer;
+  const cellPlayer =
+    cell.owner !== null
+      ? players.find((p) => p.id === cell.owner) || currentPlayer
+      : currentPlayer;
   const animationDuration = Math.max(3 - cell.orbs * 0.5, 0.5);
 
   const [animationState, setAnimationState] = useState<

@@ -1,5 +1,10 @@
+import { Server as NetServer, Socket } from "net";
+import { Server as HTTPServer } from "http";
+import { NextApiResponse } from "next";
+import { Server as IOServer } from "socket.io";
+
 export interface Player {
-  id: number;
+  id: string;
   name: string;
   color: string;
   letter: string;
@@ -7,7 +12,7 @@ export interface Player {
 
 export interface Cell {
   orbs: number;
-  owner: number | null;
+  owner: string | null;
 }
 
 export interface GameState {
@@ -46,4 +51,34 @@ export interface GroupedExplosion {
   fromY: number;
   targets: { toX: number; toY: number }[];
   color: string;
+}
+
+export interface GameMove {
+  x: number;
+  y: number;
+  playerId: string;
+}
+
+export interface OnlineGameState {
+  roomId: string;
+  players: Player[];
+  currentPlayerIndex: number;
+  board: Cell[][];
+  isGameOver: boolean;
+  moving: boolean;
+}
+
+// new change
+export type NextApiResponseWithSocket = NextApiResponse & {
+  socket: Socket & {
+    server: HTTPServer & {
+      io?: IOServer;
+    };
+  };
+};
+
+export interface Room {
+  id: string;
+  players: Player[];
+  isGameStarted: boolean;
 }
