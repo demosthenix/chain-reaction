@@ -12,6 +12,7 @@
   --success: #31c48d;
   --danger: #e53e3e;
   --border: #2d3748;
+  --animation-duration: 200ms;
 }
 
 body {
@@ -77,11 +78,9 @@ button:active {
 @keyframes explode {
   0% {
     transform: translate(var(--from-x), var(--from-y));
-    opacity: 1;
   }
   100% {
     transform: translate(var(--to-x), var(--to-y));
-    opacity: 0;
   }
 }
 
@@ -108,7 +107,7 @@ button:active {
 }
 
 .explosion {
-  animation: explode 200ms ease-out forwards;
+  animation: explode var(--animation-duration) ease-out forwards;
 }
 
 @keyframes count-up {

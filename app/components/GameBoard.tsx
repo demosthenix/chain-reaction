@@ -22,6 +22,7 @@ import {
 } from "../lib/gameLogic";
 import { useSocket } from "../providers/SocketProvider";
 import useSound from "use-sound";
+import { ANIMATION_DURATION } from "../constants/board";
 
 interface GameBoardProps {
   initialPlayers: Player[];
@@ -101,8 +102,6 @@ export default function GameBoard({
     preMoveBoard: Cell[][],
     movingPlayerIndex: number
   ) => {
-    const ANIMATION_DURATION = 200;
-
     // Start with pre-move board plus the initial click
     let currentBoard = JSON.parse(JSON.stringify(preMoveBoard));
 
@@ -155,10 +154,10 @@ export default function GameBoard({
         playExplosion();
         vibrate([100, 50, 100]);
       }
+      await new Promise((resolve) => setTimeout(resolve, ANIMATION_DURATION));
       setIntermediateBoard(currentBoard);
 
       // Wait for animations to complete
-      await new Promise((resolve) => setTimeout(resolve, ANIMATION_DURATION));
       setExplosions([]);
     }
 
@@ -186,7 +185,6 @@ export default function GameBoard({
     emitMove = true
   ) => {
     if (gameState.isGameOver || gameState.moving) return;
-    console.log("Cliecked", "x", x, "y", y);
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     // Determine the moving player
@@ -331,7 +329,7 @@ export default function GameBoard({
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background p-1 sm:p-2 md:p-4">
       {/* Header info section */}
-      <div className="w-full max-w-7xl px-4 flex flex-col items-center">
+      <div className="w-full px-4 flex flex-col items-center">
         <div className="flex flex-row justify-center items-center gap-4 mt-3">
           {/* Display connected player's info */}
           {isOnline && connectedPlayer && (
@@ -365,38 +363,47 @@ export default function GameBoard({
         </div>
 
         {/* Responsive game grid container */}
-        <div
-          className="grid grid-cols-8 grid-rows-16 relative w-full max-w-xs sm:max-w-md"
-          style={{ aspectRatio: "1 / 2" }} // Maintains 8x16 grid aspect ratio
-        >
-          {(gameState.moving ? intermediateBoard : gameState.board).map(
-            (row, y) =>
-              row.map((cell, x) => (
-                <GameCell
-                  key={`${x}-${y}`}
-                  cell={cell}
-                  x={x}
-                  y={y}
-                  currentPlayer={
-                    gameState.players[gameState.currentPlayerIndex]
-                  }
-                  isPrevCell={prevCell[0] === x && prevCell[1] === y}
-                  players={gameState.players}
-                  onClick={() => handleCellClick(x, y)}
-                  isExploding={explodingCells.has(`${x},${y}`)}
-                  isReceiving={receivingCells.has(`${x},${y}`)}
-                />
-              ))
-          )}
-          {/* Multiple explosions can now render simultaneously from the same source */}
-          {explosions.map((explosion) => (
-            <ExplosionEffect
-              key={explosion.id}
-              explosion={explosion}
-              onAnimationStart={handleAnimationStart}
-              onAnimationEnd={handleAnimationEnd}
-            />
-          ))}
+        <div className="w-full flex justify-center">
+          <div
+            className="grid grid-cols-8 grid-rows-[repeat(16,minmax(0,1fr))] relative w-full"
+            style={{
+              width: "min(100%, calc(100vh - 170px)/2)",
+              aspectRatio: "1 / 2",
+              borderWidth: "1px",
+              borderStyle: "solid",
+              borderColor:
+                gameState.players[gameState.currentPlayerIndex].color,
+            }} // Maintains 8x16 grid aspect ratio
+          >
+            {(gameState.moving ? intermediateBoard : gameState.board).map(
+              (row, y) =>
+                row.map((cell, x) => (
+                  <GameCell
+                    key={`${x}-${y}`}
+                    cell={cell}
+                    x={x}
+                    y={y}
+                    currentPlayer={
+                      gameState.players[gameState.currentPlayerIndex]
+                    }
+                    isPrevCell={prevCell[0] === x && prevCell[1] === y}
+                    players={gameState.players}
+                    onClick={() => handleCellClick(x, y)}
+                    isExploding={explodingCells.has(`${x},${y}`)}
+                    isReceiving={receivingCells.has(`${x},${y}`)}
+                  />
+                ))
+            )}
+            {/* Multiple explosions can now render simultaneously from the same source */}
+            {explosions.map((explosion) => (
+              <ExplosionEffect
+                key={explosion.id}
+                explosion={explosion}
+                onAnimationStart={handleAnimationStart}
+                onAnimationEnd={handleAnimationEnd}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
