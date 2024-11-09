@@ -1,6 +1,7 @@
 import { Cell, OrbPosition, Player } from "../types/game";
 import { getOrbPositions } from "../lib/gameLogic";
 import { useEffect, useState } from "react";
+import { ANIMATION_DURATION } from "../constants/board";
 
 interface GameCellProps {
   cell: Cell;
@@ -46,12 +47,18 @@ export function GameCell({
   useEffect(() => {
     if (isExploding) {
       setAnimationState("exploding");
-      const timer = setTimeout(() => setAnimationState("idle"), 200);
+      const timer = setTimeout(
+        () => setAnimationState("idle"),
+        ANIMATION_DURATION
+      );
       return () => clearTimeout(timer);
     }
     if (isReceiving) {
       setAnimationState("receiving");
-      const timer = setTimeout(() => setAnimationState("idle"), 200);
+      const timer = setTimeout(
+        () => setAnimationState("idle"),
+        ANIMATION_DURATION
+      );
       return () => clearTimeout(timer);
     }
   }, [isExploding, isReceiving]);
@@ -59,9 +66,10 @@ export function GameCell({
   return (
     <div
       aria-label={(cell.orbs || 0).toString()}
-      className="border-2 relative cursor-pointer transition-colors duration-200 hover:bg-gray-900
-      w-12 h-12 max-sm:w-9 max-sm:h-9"
+      className="border-2 relative cursor-pointer transition-colors hover:bg-gray-900
+      w-full aspect-square"
       style={{
+        transitionDuration: `${ANIMATION_DURATION}ms`,
         borderColor: cellPlayer.color,
         backgroundColor: isPrevCell ? "#61616180" : "",
       }}
@@ -79,50 +87,52 @@ export function GameCell({
                   : "none",
             }}
           >
-            {orbPositions.map((pos: OrbPosition, i: number) => (
-              <div
-                key={i}
-                className="absolute w-4 h-4 max-sm:w-[13px] max-sm:h-[13px]"
-                style={{
-                  top: pos.top,
-                  left: pos.left,
-                  transform: "translate(-50%, -50%)",
-                  opacity: animationState === "exploding" ? 0 : 1,
-                  transition: "opacity 200ms ease-out",
-                  animation:
-                    animationState === "exploding"
-                      ? "explode-out 200ms ease-out"
-                      : animationState === "receiving"
-                      ? "fade-in 200ms ease-out"
-                      : "none",
-                }}
-              >
-                <svg
-                  viewBox="0 0 100 100"
-                  className="w-4 h-4 max-sm:w-[13px] max-sm:h-[13px]"
+            {orbPositions.map((pos: OrbPosition, i: number) => {
+              return (
+                <div
+                  key={i}
+                  className="absolute w-4 h-4 max-sm:w-[13px] max-sm:h-[13px]"
+                  style={{
+                    top: pos.top,
+                    left: pos.left,
+                    transform: "translate(-50%, -50%)",
+                    opacity: animationState === "exploding" ? 0 : 1,
+                    transition: `opacity ${ANIMATION_DURATION}ms ease-out`,
+                    animation:
+                      animationState === "exploding"
+                        ? `explode-out ${ANIMATION_DURATION}ms ease-out`
+                        : animationState === "receiving"
+                        ? `fade-in ${ANIMATION_DURATION}ms ease-out`
+                        : "none",
+                  }}
                 >
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill={cellPlayer.color}
-                    filter="url(#glow)"
-                    stroke="white"
-                    strokeWidth={3}
-                  />
-                  <defs>
-                    <filter id="glow">
-                      <feGaussianBlur stdDeviation="2" result="blur" />
-                      <feComposite
-                        in="SourceGraphic"
-                        in2="blur"
-                        operator="over"
-                      />
-                    </filter>
-                  </defs>
-                </svg>
-              </div>
-            ))}
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="w-4 h-4 max-sm:w-[13px] max-sm:h-[13px]"
+                  >
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill={cellPlayer.color}
+                      filter="url(#glow)"
+                      stroke="white"
+                      strokeWidth={3}
+                    />
+                    <defs>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feComposite
+                          in="SourceGraphic"
+                          in2="blur"
+                          operator="over"
+                        />
+                      </filter>
+                    </defs>
+                  </svg>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

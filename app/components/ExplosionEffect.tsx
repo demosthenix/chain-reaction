@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Explosion } from "../types/game";
-import { useMediaQuery } from "react-responsive";
+import { GRID_COLS } from "../lib/gameLogic";
 
 interface ExplosionEffectProps {
   explosion: Explosion;
@@ -17,25 +18,67 @@ interface ExplosionEffectProps {
   ) => void;
 }
 
-const CELL_SIZE = 48;
-const CELL_GAP = 4;
-
-const SMALL_CELL_SIZE = 36;
-const SMALL_CELL_GAP = 3.5;
-
 export function ExplosionEffect({
   explosion,
   onAnimationStart,
   onAnimationEnd,
 }: ExplosionEffectProps) {
-  const isSmallScreen = useMediaQuery({ maxWidth: 639 }); // <640px
-  const cellSize = isSmallScreen ? SMALL_CELL_SIZE : CELL_SIZE;
-  const cellGap = isSmallScreen ? SMALL_CELL_GAP : CELL_GAP;
+  const [dimensions, setDimensions] = useState({
+    cellSize: 0,
+    cellGap: 0,
+  });
 
-  const fromPixelX = explosion.fromX * (cellSize + cellGap) + cellSize / 2;
-  const fromPixelY = explosion.fromY * (cellSize + cellGap) + cellSize / 2;
-  const toPixelX = explosion.toX * (cellSize + cellGap) + cellSize / 2;
-  const toPixelY = explosion.toY * (cellSize + cellGap) + cellSize / 2;
+  useEffect(() => {
+    // Function to calculate dimensions
+    const calculateDimensions = () => {
+      // Get the grid container
+      const gridContainer = document.querySelector(".grid");
+      if (!gridContainer) return;
+
+      // Calculate gap from the first cell's border width
+      const firstCell = gridContainer.querySelector("div");
+      const borderWidth = firstCell
+        ? parseFloat(window.getComputedStyle(firstCell).borderWidth)
+        : 2;
+
+      // Calculate cell size from grid width (8 columns)
+      const gridWidth = gridContainer.clientWidth;
+      const cellWidth = gridWidth / GRID_COLS;
+
+      setDimensions({
+        cellSize: cellWidth,
+        cellGap: borderWidth * 2, // Double the border width for total gap
+      });
+    };
+
+    // Calculate initially
+    calculateDimensions();
+
+    // Recalculate on window resize
+    const handleResize = () => {
+      calculateDimensions();
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Only render when we have valid dimensions
+  if (dimensions.cellSize === 0) return null;
+
+  const offset = 6;
+
+  const fromPixelX =
+    explosion.fromX * dimensions.cellSize + dimensions.cellSize / 2 - offset;
+  const fromPixelY =
+    explosion.fromY * dimensions.cellSize + dimensions.cellSize / 2 - offset;
+  const toPixelX =
+    explosion.toX * dimensions.cellSize + dimensions.cellSize / 2 - offset;
+  const toPixelY =
+    explosion.toY * dimensions.cellSize + dimensions.cellSize / 2 - offset;
+
+  // Calculate explosion orb size based on cell size
+  const orbSize = Math.max(dimensions.cellSize * 0.3, 13); // Minimum size of 13px
 
   return (
     <div
@@ -46,6 +89,8 @@ export function ExplosionEffect({
           "--from-y": `${fromPixelY}px`,
           "--to-x": `${toPixelX}px`,
           "--to-y": `${toPixelY}px`,
+          width: `${orbSize}px`,
+          height: `${orbSize}px`,
         } as React.CSSProperties
       }
       onAnimationStart={() =>
