@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   applicationName: "Chain Reaction",
   authors: [{ name: "demosthenix" }],
   keywords: ["game", "chain reaction", "multiplayer", "strategy"],
-  manifest: "/site.webmanifest",
+  manifest: "/manifest.json",
   themeColor: "#1a1a2e",
   appleWebApp: {
     capable: true,
