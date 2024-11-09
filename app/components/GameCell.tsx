@@ -38,8 +38,6 @@ export function GameCell({
   >("idle");
   const [prevOrbCount, setPrevOrbCount] = useState(cell.orbs);
 
-  console.log({ isExploding, isReceiving, animationState });
-
   useEffect(() => {
     if (cell.orbs !== prevOrbCount) {
       setPrevOrbCount(cell.orbs);

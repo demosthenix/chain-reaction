@@ -66,8 +66,6 @@ export function ExplosionEffect({
   // Only render when we have valid dimensions
   if (dimensions.cellSize === 0) return null;
 
-  console.log(dimensions);
-
   const offset = 6;
 
   const fromPixelX =
