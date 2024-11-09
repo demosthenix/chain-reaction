@@ -21,6 +21,7 @@ import {
   isWithInCapacity,
 } from "../lib/gameLogic";
 import { useSocket } from "../providers/SocketProvider";
+import useSound from "use-sound";
 
 interface GameBoardProps {
   initialPlayers: Player[];
@@ -47,6 +48,21 @@ export default function GameBoard({
   const [explosions, setExplosions] = useState<Explosion[]>([]);
   const explosionCount = useRef(0);
   const [prevCell, setPrevCell] = useState<[number, number]>([-1, -1]);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [playClick] = useSound("/sounds/click.mp3", {
+    volume: 0.5,
+    disabled: !isSoundEnabled,
+  });
+  const [playExplosion] = useSound("/sounds/explode.mp3", {
+    volume: 0.75,
+    disabled: !isSoundEnabled,
+  });
+
+  const vibrate = (pattern: number | number[]) => {
+    if (Boolean(window.navigator.vibrate)) {
+      window.navigator.vibrate(pattern);
+    }
+  };
 
   useEffect(() => {
     if (isOnline && socket) {
@@ -136,6 +152,8 @@ export default function GameBoard({
           explosion.toY,
           currentBoard[explosion.fromY][explosion.fromX].owner
         );
+        playExplosion();
+        vibrate([100, 50, 100]);
       }
       setIntermediateBoard(currentBoard);
 
@@ -190,6 +208,8 @@ export default function GameBoard({
     if (cell.owner === null || cell.owner === movingPlayerId) {
       if (cell.orbs >= capacity) return;
 
+      playClick();
+      vibrate(50);
       // In online mode, emit the move
       if (isOnline && emitMove && socket && roomId) {
         socket.emit("make-move", {
@@ -211,7 +231,7 @@ export default function GameBoard({
         owner: movingPlayerId,
       };
 
-      let explosionSequence = collectExplosionSequence(
+      const explosionSequence = collectExplosionSequence(
         finalBoard,
         x,
         y,
@@ -229,7 +249,6 @@ export default function GameBoard({
         });
       });
 
-      let isGameOver = false;
       if (explosionSequence.length > 0) {
         animateExplosions(
           explosionSequence,
@@ -243,9 +262,7 @@ export default function GameBoard({
         setGameState((prev) => ({
           ...prev,
           board: finalBoard,
-          currentPlayerIndex: isGameOver
-            ? movingPlayerIndex
-            : (movingPlayerIndex + 1) % prev.players.length,
+          currentPlayerIndex: (movingPlayerIndex + 1) % prev.players.length,
           moving: false,
           isGameOver: false,
         }));
