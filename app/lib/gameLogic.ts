@@ -1,21 +1,19 @@
+import { BOARD_COLUMNS, BOARD_ROWS } from "../constants/board";
 import { Cell, ExplosionEvent, OrbPosition, Player } from "../types/game";
-
-export const GRID_COLS = 8;
-export const GRID_ROWS = 16;
 
 export const getCellCapacity = (x: number, y: number) => {
   let capacity = 4;
-  if (x === 0 || x === GRID_COLS - 1) capacity -= 1;
-  if (y === 0 || y === GRID_ROWS - 1) capacity -= 1;
+  if (x === 0 || x === BOARD_COLUMNS - 1) capacity -= 1;
+  if (y === 0 || y === BOARD_ROWS - 1) capacity -= 1;
   return capacity;
 };
 
 export const getNeighbors = (x: number, y: number) => {
   const neighbors = [];
   if (x > 0) neighbors.push({ x: x - 1, y });
-  if (x < GRID_COLS - 1) neighbors.push({ x: x + 1, y });
+  if (x < BOARD_COLUMNS - 1) neighbors.push({ x: x + 1, y });
   if (y > 0) neighbors.push({ x, y: y - 1 });
-  if (y < GRID_ROWS - 1) neighbors.push({ x, y: y + 1 });
+  if (y < BOARD_ROWS - 1) neighbors.push({ x, y: y + 1 });
   return neighbors;
 };
 
@@ -41,9 +39,27 @@ export const getRemainingPlayers = (
   return players.filter((player) => activePlayers[player.id]);
 };
 
+export const isGameOver = (board: Cell[][]) => {
+  let existingOwner: string | null = null;
+
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell.owner && !existingOwner) {
+        existingOwner = cell.owner;
+        continue;
+      }
+      if (cell.owner && cell.owner !== existingOwner) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+};
+
 export const createInitialBoard = (): Cell[][] => {
-  return Array.from({ length: GRID_ROWS }, () =>
-    Array.from({ length: GRID_COLS }, () => ({ orbs: 0, owner: null }))
+  return Array.from({ length: BOARD_ROWS }, () =>
+    Array.from({ length: BOARD_COLUMNS }, () => ({ orbs: 0, owner: null }))
   );
 };
 
@@ -88,11 +104,18 @@ export const collectExplosionSequence = (
   const sequence: ExplosionEvent[] = [];
   const processedExplosions = new Set<string>();
   const cellsToProcess = [{ x: startX, y: startY }];
+  const maxIterations = BOARD_ROWS * BOARD_COLUMNS * 2;
 
   // Deep copy the board for calculations
   const workingBoard: Cell[][] = JSON.parse(JSON.stringify(board));
 
   while (cellsToProcess.length > 0) {
+    if (processedExplosions.size >= maxIterations) {
+      console.warn(
+        "Maximum explosion chain limit reached, stopping propagation"
+      );
+      break;
+    }
     const { x, y } = cellsToProcess.shift()!;
     const cellKey = `${x},${y}`;
 
@@ -149,6 +172,10 @@ export const collectExplosionSequence = (
       cell.owner = workingBoard[y][x].owner;
     });
   });
+
+  if (isGameOver(board)) {
+    return sequence;
+  }
 
   board.forEach((row, y) => {
     row.forEach((cell, x) => {

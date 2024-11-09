@@ -4,8 +4,6 @@ import { useState } from "react";
 import { Player, ValidationError } from "../types/game";
 import { PLAYER_COLORS } from "../constants/colors";
 
-const colors = ["red", "green", "blue", "yellow", "cyan", "magenta"];
-
 interface PlayerSetupProps {
   onStartGame: (players: Player[]) => void;
 }
@@ -21,7 +19,11 @@ const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
     const usedColors = players
       .filter((_, index) => index !== currentPlayerIndex)
       .map((p) => p.color);
-    return PLAYER_COLORS.filter((color) => !usedColors.includes(color));
+    return PLAYER_COLORS.filter(
+      (color) =>
+        color === players[currentPlayerIndex].color ||
+        !usedColors.includes(color)
+    );
   };
 
   const validatePlayers = (): ValidationError[] => {
@@ -126,9 +128,21 @@ const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
               key={index}
               className="bg-gray-900 p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-4"
             >
-              <span className="text-white font-medium min-w-[100px]">
-                Player {index + 1}
-              </span>
+              <div className="max-sm:w-full flex flex-row justify-between items-center">
+                <span className="text-white font-medium min-w-[100px]">
+                  Player {index + 1}
+                </span>
+                {players.length > 2 && (
+                  <button
+                    onClick={() => removePlayer(index)}
+                    className="w-auto text-red-400 hover:text-red-300 
+                              transition-colors rounded-full hover:bg-red-500/10 sm:hidden p-0"
+                    aria-label="Remove player"
+                  >
+                    <CrossIcon />
+                  </button>
+                )}
+              </div>
 
               <input
                 type="text"
@@ -157,26 +171,11 @@ const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
               {players.length > 2 && (
                 <button
                   onClick={() => removePlayer(index)}
-                  className="mt-2 sm:mt-0 p-2 text-red-400 hover:text-red-300 
-                              transition-colors rounded-full hover:bg-red-500/10"
+                  className="w-9 mt-2 sm:mt-0 p-2 text-red-400 hover:text-red-300 
+                              transition-colors rounded-full hover:bg-red-500/10 max-sm:hidden"
                   aria-label="Remove player"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 
-                             00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 
-                             1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 
-                             10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 
-                             7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <CrossIcon />
                 </button>
               )}
             </div>
@@ -205,3 +204,22 @@ const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
 };
 
 export default PlayerSetup;
+
+const CrossIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      fillRule="evenodd"
+      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 
+           00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 
+           1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 
+           10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 
+           7.293z"
+      clipRule="evenodd"
+    />
+  </svg>
+);

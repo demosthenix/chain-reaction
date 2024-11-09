@@ -22,7 +22,11 @@ import {
 } from "../lib/gameLogic";
 import { useSocket } from "../providers/SocketProvider";
 import useSound from "use-sound";
-import { ANIMATION_DURATION } from "../constants/board";
+import {
+  ANIMATION_DURATION,
+  BOARD_COLUMNS,
+  BOARD_ROWS,
+} from "../constants/board";
 
 interface GameBoardProps {
   initialPlayers: Player[];
@@ -365,8 +369,10 @@ export default function GameBoard({
         {/* Responsive game grid container */}
         <div className="w-full flex justify-center">
           <div
-            className="grid grid-cols-8 grid-rows-[repeat(16,minmax(0,1fr))] relative w-full"
+            className={`grid relative w-full`}
             style={{
+              gridTemplateColumns: `repeat(${BOARD_COLUMNS}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${BOARD_ROWS},minmax(0,1fr))`,
               width: "min(100%, calc(100vh - 170px)/2)",
               aspectRatio: "1 / 2",
               borderWidth: "1px",

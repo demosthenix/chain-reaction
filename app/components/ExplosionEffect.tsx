@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Explosion } from "../types/game";
-import { GRID_COLS } from "../lib/gameLogic";
+import { BOARD_COLUMNS } from "../constants/board";
 
 interface ExplosionEffectProps {
   explosion: Explosion;
@@ -43,7 +43,7 @@ export function ExplosionEffect({
 
       // Calculate cell size from grid width (8 columns)
       const gridWidth = gridContainer.clientWidth;
-      const cellWidth = gridWidth / GRID_COLS;
+      const cellWidth = gridWidth / BOARD_COLUMNS;
 
       setDimensions({
         cellSize: cellWidth,
