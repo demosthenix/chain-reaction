@@ -3,16 +3,26 @@
 import { useState } from "react";
 import { Player, ValidationError } from "../types/game";
 import { PLAYER_COLORS } from "../constants/colors";
+import { gameSetupAtom } from "../atoms/gameSetup";
+import { useRecoilState } from "recoil";
 
 interface PlayerSetupProps {
   onStartGame: (players: Player[]) => void;
 }
 
 const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
-  const [players, setPlayers] = useState<Player[]>([
-    { id: "0", name: "", color: "", letter: "" },
-    { id: "1", name: "", color: "", letter: "" },
-  ]);
+  const [gameSetup, setGameSetup] = useRecoilState(gameSetupAtom);
+
+  // Initialize with saved players or default setup
+  const [players, setPlayers] = useState<Player[]>(() => {
+    if (gameSetup.mode === "local" && gameSetup.players.length >= 2) {
+      return gameSetup.players;
+    }
+    return [
+      { id: "0", name: "", color: "", letter: "" },
+      { id: "1", name: "", color: "", letter: "" },
+    ];
+  });
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const getAvailableColors = (currentPlayerIndex: number) => {
@@ -21,7 +31,7 @@ const PlayerSetup = ({ onStartGame }: PlayerSetupProps) => {
       .map((p) => p.color);
     return PLAYER_COLORS.filter(
       (color) =>
-        color === players[currentPlayerIndex].color ||
+        color === players[currentPlayerIndex]?.color ||
         !usedColors.includes(color)
     );
   };

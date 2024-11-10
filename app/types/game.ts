@@ -8,11 +8,19 @@ export interface Player {
   name: string;
   color: string;
   letter: string;
+  isOwner?: boolean;
 }
 
 export interface Cell {
   orbs: number;
   owner: string | null;
+}
+
+export interface GameSetup {
+  mode: "local" | "online" | null;
+  players: Player[];
+  isGameStarted: boolean;
+  roomId?: string;
 }
 
 export interface GameState {
@@ -59,15 +67,6 @@ export interface GameMove {
   playerId: string;
 }
 
-export interface OnlineGameState {
-  roomId: string;
-  players: Player[];
-  currentPlayerIndex: number;
-  board: Cell[][];
-  isGameOver: boolean;
-  moving: boolean;
-}
-
 // new change
 export type NextApiResponseWithSocket = NextApiResponse & {
   socket: Socket & {
@@ -81,6 +80,7 @@ export interface Room {
   id: string;
   players: Player[];
   isGameStarted: boolean;
+  gameState?: GameState;
 }
 
 export type ValidationError = {

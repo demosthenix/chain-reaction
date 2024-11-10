@@ -5,8 +5,8 @@ import { GameState } from "@/app/types/game";
 
 const { persistAtom } = recoilPersist();
 
-export const gameState = atom<GameState>({
-  key: "gameState",
+export const gameStateAtom = atom<GameState>({
+  key: "gameStateAtom",
   default: {
     moving: false,
     players: [],

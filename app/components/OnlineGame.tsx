@@ -4,25 +4,66 @@ import { useEffect, useState } from "react";
 import { Player, ValidationError } from "../types/game";
 import { useSocket } from "../providers/SocketProvider";
 import { PLAYER_COLORS } from "../constants/colors";
+import { gameSetupAtom } from "../atoms/gameSetup";
+import { useRecoilState } from "recoil";
 
 interface OnlineGameProps {
   onJoinGame: (players: Player[], roomId: string) => void;
 }
 export function OnlineGame({ onJoinGame }: OnlineGameProps) {
-  const { socket } = useSocket();
-  const [roomId, setRoomId] = useState("");
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [player, setPlayer] = useState<Player>({
-    id: "",
-    name: "",
-    color: "",
-    letter: "",
+  const { socket, clientId } = useSocket();
+  const [gameSetup, setGameSetup] = useRecoilState(gameSetupAtom);
+  const [roomId, setRoomId] = useState(gameSetup.roomId || "");
+  const [players, setPlayers] = useState<Player[]>(gameSetup.players || []);
+  const [player, setPlayer] = useState<Player>(() => {
+    if (gameSetup.players.length > 0 && socket) {
+      const savedPlayer = gameSetup.players.find((p) => p.id === clientId);
+      if (savedPlayer) return savedPlayer;
+    }
+    return {
+      id: "",
+      name: "",
+      color: "",
+      letter: "",
+    };
   });
+
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [isJoining, setIsJoining] = useState(false);
+
+  useEffect(() => {
+    if (gameSetup.roomId) {
+      setRoomId(gameSetup.roomId);
+      setPlayers(gameSetup.players);
+      const host = gameSetup.players?.find((p) => p.isOwner);
+      if (host) {
+        setIsOwner(host.id === player.id);
+      } else {
+        const newHost = gameSetup.players[0];
+        newHost.isOwner = true;
+        const newPlayers = [newHost, ...gameSetup.players.slice(1)];
+        setPlayer((prev) => (prev.id === newHost.id ? newHost : prev));
+        setPlayers(newPlayers);
+        setIsOwner(newHost.id === player.id);
+        setGameSetup((prev) => ({ ...prev, players: newPlayers }));
+      }
+    }
+  }, [socket, gameSetup]);
+
+  // Try to reconnect to existing game
+  useEffect(() => {
+    if (socket && gameSetup.roomId && gameSetup.players.length > 0) {
+      const savedPlayer = gameSetup.players.find((p) => p.id === clientId);
+      if (savedPlayer) {
+        setPlayer(savedPlayer);
+        setRoomId(gameSetup.roomId);
+        socket.emit("sync-request", { roomId: gameSetup.roomId });
+      }
+    }
+  }, [socket, gameSetup]);
 
   // Add validation function
   const validatePlayer = (): ValidationError[] => {
@@ -52,19 +93,83 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
   useEffect(() => {
     if (!socket) return;
 
+    // Player updates handler
     socket.on("player-updated", (updatedPlayers: Player[]) => {
+      console.log("Players updated:", updatedPlayers);
       setPlayers(updatedPlayers);
+
+      // Check if you're still in the game
+      const yourPlayer = updatedPlayers.find((p) => p.id === clientId);
+      if (yourPlayer) {
+        setPlayer(yourPlayer);
+        setIsOwner(!!yourPlayer.isOwner);
+      }
+
+      setGameSetup((prev) => ({
+        ...prev,
+        players: updatedPlayers,
+      }));
     });
 
+    // Player left handler
+    socket.on(
+      "player-left",
+      ({
+        playerId,
+        players: updatedPlayers,
+      }: {
+        playerId: string;
+        players: Player[];
+      }) => {
+        console.log("Player left:", { playerId, updatedPlayers });
+
+        if (playerId === clientId) {
+          // If you're the one who left
+          setRoomId("");
+          setPlayers([]);
+          setGameSetup((prev) => ({
+            ...prev,
+            players: [],
+            roomId: "",
+            isGameStarted: false,
+          }));
+        } else {
+          // If another player left
+          setPlayers(updatedPlayers);
+
+          // Check if you became the owner
+          const yourPlayer = updatedPlayers.find((p) => p.id === clientId);
+          if (yourPlayer) {
+            setPlayer(yourPlayer);
+            setIsOwner(!!yourPlayer.isOwner);
+          }
+
+          setGameSetup((prev) => ({
+            ...prev,
+            players: updatedPlayers,
+          }));
+        }
+      }
+    );
+
+    // Game started handler
     socket.on("game-started", (gamePlayers: Player[]) => {
+      // Update persisted state before starting game
+      setGameSetup((prev) => ({
+        ...prev,
+        players: gamePlayers,
+        roomId: roomId,
+        isGameStarted: true,
+      }));
       onJoinGame(gamePlayers, roomId);
     });
 
     return () => {
       socket.off("player-updated");
+      socket.off("player-left");
       socket.off("game-started");
     };
-  }, [socket, onJoinGame, roomId]);
+  }, [socket, clientId, onJoinGame, roomId]);
 
   const createGame = () => {
     if (!socket) return;
@@ -76,10 +181,13 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
     }
 
     setIsJoining(true);
+    // First create room
     socket.emit("create-room", ({ roomId }: { roomId: string }) => {
       setRoomId(roomId);
       setIsOwner(true);
-      const newPlayer = { ...player, id: socket.id! };
+
+      // Then join the created room
+      const newPlayer = { ...player, id: clientId, isOwner: true };
       setPlayer(newPlayer);
       socket.emit(
         "join-room",
@@ -88,6 +196,11 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
           setIsJoining(false);
           if (response.success) {
             setPlayers([newPlayer]);
+            setGameSetup((prev) => ({
+              ...prev,
+              players: [newPlayer],
+              roomId: roomId,
+            }));
             setErrors([]);
           } else {
             setErrors([
@@ -117,7 +230,7 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
     }
 
     setIsJoining(true);
-    const newPlayer = { ...player, id: socket.id! };
+    const newPlayer = { ...player, id: clientId };
     setPlayer(newPlayer);
 
     socket.emit(
@@ -126,7 +239,12 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
       (response: any) => {
         setIsJoining(false);
         if (response.success) {
-          setRoomId(joinCode.toUpperCase());
+          const newRoomId = joinCode.toUpperCase();
+          setRoomId(newRoomId);
+          setGameSetup((prev) => ({
+            ...prev,
+            roomId: newRoomId,
+          }));
           setErrors([]);
         } else {
           setErrors([
@@ -140,12 +258,40 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
     );
   };
 
+  const leaveGame = () => {
+    if (socket && roomId) {
+      console.log("Leaving game...", { roomId, clientId });
+      socket.emit(
+        "leave-room",
+        { roomId, playerId: clientId },
+        (response: any) => {
+          // Add callback to confirm event was received
+          console.log("Leave room response:", response);
+          setRoomId("");
+          setPlayers([]);
+          setGameSetup((prev) => ({
+            ...prev,
+            players: [],
+            roomId: "",
+            isGameStarted: false,
+          }));
+        }
+      );
+    }
+  };
+
   const updatePlayerInfo = (key: keyof Player, value: string) => {
     const updatedPlayer = { ...player, [key]: value };
     setPlayer(updatedPlayer);
 
     if (socket && roomId) {
       socket.emit("update-player", { roomId, player: updatedPlayer });
+      setGameSetup((prev) => ({
+        ...prev,
+        players: players.map((p) =>
+          p.id === updatedPlayer.id ? updatedPlayer : p
+        ),
+      }));
     }
   };
 
@@ -187,11 +333,17 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
     }
 
     socket.emit("start-game", roomId);
+    setGameSetup((prev) => ({
+      ...prev,
+      isGameStarted: true,
+    }));
   };
 
   const getAvailableColors = () => {
     const usedColors = players.map((p) => p.color);
-    return PLAYER_COLORS.filter((color) => !usedColors.includes(color));
+    return PLAYER_COLORS.filter(
+      (color) => color === player.color || !usedColors.includes(color)
+    );
   };
 
   return (
@@ -286,9 +438,21 @@ export function OnlineGame({ onJoinGame }: OnlineGameProps) {
               <button onClick={startGame} className="bg-green-500">
                 Start Game
               </button>
+            ) : players.length < 2 ? (
+              <p>Waiting for other players to join the game...</p>
             ) : (
               <p>Waiting for the host to start the game...</p>
             )}
+          </div>
+        )}
+        {roomId && (
+          <div>
+            <button
+              onClick={leaveGame}
+              className="bg-red-500/20 hover:bg-red-500/40 transition-colors px-4 py-2 rounded-lg text-white mt-4"
+            >
+              Leave Game
+            </button>
           </div>
         )}
       </div>

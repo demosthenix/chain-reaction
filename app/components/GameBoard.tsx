@@ -27,6 +27,9 @@ import {
   BOARD_COLUMNS,
   BOARD_ROWS,
 } from "../constants/board";
+import useReconnect from "../hooks/useReconnect";
+import { useRecoilState } from "recoil";
+import { gameStateAtom } from "../atoms/gameState";
 
 interface GameBoardProps {
   initialPlayers: Player[];
@@ -38,14 +41,8 @@ export default function GameBoard({
   isOnline,
   roomId,
 }: GameBoardProps) {
-  const { socket } = useSocket();
-  const [gameState, setGameState] = useState({
-    players: initialPlayers,
-    currentPlayerIndex: 0,
-    board: createInitialBoard(),
-    isGameOver: false,
-    moving: false,
-  });
+  const { socket, clientId } = useSocket();
+  const [gameState, setGameState] = useRecoilState<GameState>(gameStateAtom);
   const [connectedPlayer, setConnectedPlayer] = useState<Player | null>(null);
   const [intermediateBoard, setIntermediateBoard] = useState<Cell[][]>(
     createInitialBoard()
@@ -63,6 +60,28 @@ export default function GameBoard({
     disabled: !isSoundEnabled,
   });
 
+  const { isReconnecting } = useReconnect(
+    socket,
+    !!isOnline,
+    setGameState,
+    roomId
+  );
+
+  // console.log({ isReconnecting });
+
+  useEffect(() => {
+    // Initialize game state if it's empty or players don't match
+    if (gameState.players.length === 0 || gameState.board.length === 0) {
+      setGameState({
+        players: initialPlayers,
+        currentPlayerIndex: 0,
+        board: createInitialBoard(),
+        isGameOver: false,
+        moving: false,
+      });
+    }
+  }, [initialPlayers]);
+
   const vibrate = (pattern: number | number[]) => {
     if (Boolean(window.navigator.vibrate)) {
       window.navigator.vibrate(pattern);
@@ -70,9 +89,9 @@ export default function GameBoard({
   };
 
   useEffect(() => {
-    if (isOnline && socket) {
+    if (isOnline && socket && clientId) {
       // Find the connected player's information
-      const player = gameState.players.find((p) => p.id === socket.id) || null;
+      const player = gameState.players.find((p) => p.id === clientId) || null;
       setConnectedPlayer(player);
 
       socket.on("move-made", (move: GameMove) => {
@@ -91,7 +110,32 @@ export default function GameBoard({
       // In local mode, set connected player to null
       setConnectedPlayer(null);
     }
-  }, [isOnline, socket, gameState, setGameState]);
+  }, [isOnline, socket, gameState, setGameState, clientId]);
+
+  useEffect(() => {
+    if (isOnline && socket) {
+      socket.on("sync-game-state", (serverGameState: GameState) => {
+        setGameState(serverGameState);
+      });
+
+      socket.on(
+        "player-disconnected",
+        ({ gameState: updatedGameState }: { gameState: GameState }) => {
+          setGameState(updatedGameState);
+        }
+      );
+
+      // Request sync when component mounts
+      if (roomId) {
+        socket.emit("sync-request", { roomId });
+      }
+
+      return () => {
+        socket.off("sync-game-state");
+        socket.off("player-disconnected");
+      };
+    }
+  }, [isOnline, socket, roomId]);
 
   useEffect(() => {
     if (gameState.isGameOver && isOnline && socket && roomId) {
@@ -113,7 +157,7 @@ export default function GameBoard({
     const firstEvent = explosionSequence[0];
     currentBoard[firstEvent.fromY][firstEvent.fromX] = {
       orbs: preMoveBoard[firstEvent.fromY][firstEvent.fromX].orbs + 1,
-      owner: gameState.players[gameState.currentPlayerIndex].id,
+      owner: gameState.players[gameState.currentPlayerIndex]?.id,
     };
 
     setIntermediateBoard(currentBoard);
@@ -202,7 +246,7 @@ export default function GameBoard({
       return;
     }
     // Only allow the current player to make a move when initiating the move
-    if (emitMove && isOnline && currentPlayer.id !== socket?.id) return;
+    if (emitMove && isOnline && currentPlayer.id !== clientId) return;
 
     const cell = gameState.board[y][x];
     const capacity = getCellCapacity(x, y);
@@ -214,9 +258,19 @@ export default function GameBoard({
       vibrate(50);
       // In online mode, emit the move
       if (isOnline && emitMove && socket && roomId) {
+        const updatedGameState: GameState = {
+          board: gameState.board,
+          currentPlayerIndex:
+            (movingPlayerIndex + 1) % gameState.players.length,
+          players: gameState.players,
+          isGameOver: false,
+          moving: false,
+        };
+
         socket.emit("make-move", {
           roomId,
           move: { x, y, playerId: movingPlayerId },
+          gameState: updatedGameState,
         });
       }
 
@@ -305,12 +359,12 @@ export default function GameBoard({
 
   if (gameState.isGameOver) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
         <div
-          style={{ color: gameState.players[0].color }}
+          style={{ color: gameState.players[0]?.color }} // Add optional chaining
           className="text-4xl font-bold mb-8 text-center"
         >
-          Player {gameState.players[0].letter} Wins!
+          Player {gameState.players[0]?.letter} Wins!
         </div>
         <button
           onClick={() => {
@@ -326,6 +380,16 @@ export default function GameBoard({
         >
           Play Again
         </button>
+      </div>
+    );
+  }
+
+  if (isReconnecting) {
+    return (
+      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-background p-4 rounded-lg text-white">
+          <div className="animate-pulse">Reconnecting...</div>
+        </div>
       </div>
     );
   }
@@ -346,24 +410,26 @@ export default function GameBoard({
             </div>
           )}
           {/* Display current player's turn */}
-          <div
-            style={{
-              color: gameState.players[gameState.currentPlayerIndex].color,
-            }}
-            className="mb-4 text-xl flex items-center bg-white/5 px-4 py-2 rounded-lg"
-          >
-            {connectedPlayer?.id ===
-            gameState.players[gameState.currentPlayerIndex].id ? (
-              <span>Your Turn</span>
-            ) : (
-              <>
-                <span>Current Player:</span>
-                <span className="ml-2 font-bold">
-                  {gameState.players[gameState.currentPlayerIndex].letter}
-                </span>
-              </>
-            )}
-          </div>
+          {gameState.players.length > 0 && (
+            <div
+              style={{
+                color: gameState.players[gameState.currentPlayerIndex]?.color,
+              }}
+              className="mb-4 text-xl flex items-center bg-white/5 px-4 py-2 rounded-lg"
+            >
+              {connectedPlayer?.id ===
+              gameState.players[gameState.currentPlayerIndex]?.id ? (
+                <span>Your Turn</span>
+              ) : (
+                <>
+                  <span>Current Player:</span>
+                  <span className="ml-2 font-bold">
+                    {gameState.players[gameState.currentPlayerIndex]?.letter}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Responsive game grid container */}
@@ -378,7 +444,8 @@ export default function GameBoard({
               borderWidth: "1px",
               borderStyle: "solid",
               borderColor:
-                gameState.players[gameState.currentPlayerIndex].color,
+                gameState.players[gameState.currentPlayerIndex]?.color ||
+                "white",
             }} // Maintains 8x16 grid aspect ratio
           >
             {(gameState.moving ? intermediateBoard : gameState.board).map(
