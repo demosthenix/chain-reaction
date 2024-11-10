@@ -403,7 +403,7 @@ export default function GameBoard({
           {isOnline && connectedPlayer && (
             <div
               style={{ color: connectedPlayer.color }}
-              className="mb-4 text-xl flex items-center bg-white/5 px-4 py-2 rounded-lg"
+              className="mb-4 text-base flex items-center bg-white/5 px-3 py-1 rounded-lg"
             >
               <span>Your Player:</span>
               <span className="ml-2 font-bold">{connectedPlayer.letter}</span>
@@ -415,7 +415,7 @@ export default function GameBoard({
               style={{
                 color: gameState.players[gameState.currentPlayerIndex]?.color,
               }}
-              className="mb-4 text-xl flex items-center bg-white/5 px-4 py-2 rounded-lg"
+              className="mb-4 text-base flex items-center bg-white/5 px-3 py-1 rounded-lg"
             >
               {connectedPlayer?.id ===
               gameState.players[gameState.currentPlayerIndex]?.id ? (
