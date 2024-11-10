@@ -70,7 +70,7 @@ export function GameCell({
       w-full aspect-square"
       style={{
         transitionDuration: `${ANIMATION_DURATION}ms`,
-        borderColor: cellPlayer.color,
+        borderColor: cellPlayer?.color || "white",
         backgroundColor: isPrevCell ? "#61616180" : "",
       }}
       onClick={onClick}
